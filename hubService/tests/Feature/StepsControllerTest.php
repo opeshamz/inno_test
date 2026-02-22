@@ -9,8 +9,8 @@ class StepsControllerTest extends TestCase
     public function test_steps_requires_country(): void
     {
         $this->getJson('/api/steps')
-             ->assertStatus(422)
-             ->assertJsonValidationErrors(['country']);
+            ->assertStatus(422)
+            ->assertJsonValidationErrors(['country']);
     }
 
     public function test_usa_returns_two_steps(): void

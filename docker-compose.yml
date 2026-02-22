@@ -6,7 +6,6 @@ version: "3.9"
 # =============================================================================
 
 services:
-
   # ---------------------------------------------------------------------------
   # PostgreSQL — shared database (two separate DBs, one Postgres instance)
   # ---------------------------------------------------------------------------
@@ -43,8 +42,8 @@ services:
       RABBITMQ_DEFAULT_USER: guest
       RABBITMQ_DEFAULT_PASS: guest
     ports:
-      - "5672:5672"     # AMQP
-      - "15672:15672"   # Management UI
+      - "5672:5672" # AMQP
+      - "15672:15672" # Management UI
     volumes:
       - rabbitmq_data:/var/lib/rabbitmq
     healthcheck:
@@ -89,8 +88,8 @@ services:
       SOKETI_DEFAULT_APP_KEY: innoscripta-key
       SOKETI_DEFAULT_APP_SECRET: innoscripta-secret
     ports:
-      - "6001:6001"   # WebSocket
-      - "9601:9601"   # Metrics
+      - "6001:6001" # WebSocket
+      - "9601:9601" # Metrics
     networks:
       - innoscripta
 

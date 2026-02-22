@@ -26,8 +26,7 @@ class EmployeeDataUpdated implements ShouldBroadcast
         public readonly int|string|null $employeeId,
         public readonly array $payload,
         public readonly array $checklistSummary = []
-    ) {
-    }
+    ) {}
 
     public function broadcastOn(): array
     {

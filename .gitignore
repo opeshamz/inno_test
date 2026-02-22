@@ -1,16 +1,44 @@
-# Ignore vendor dirs from both services (restored by composer install in Docker)
+# Vendor dirs (restored by composer install in Docker)
 hrService/vendor/
 hubService/vendor/
 
-# Laravel storage (generated at runtime)
-hrService/storage/framework/cache/
+# Node modules
+node_modules/
+
+# Laravel storage runtime dirs
+hrService/storage/framework/cache/data/
 hrService/storage/framework/sessions/
+hrService/storage/framework/testing/
 hrService/storage/framework/views/
-hubService/storage/framework/cache/
+hubService/storage/framework/cache/data/
 hubService/storage/framework/sessions/
+hubService/storage/framework/testing/
 hubService/storage/framework/views/
 
-# Keep .env files committed (demo project — credentials are non-sensitive defaults)
+# Laravel logs
+hrService/storage/logs/*.log
+hubService/storage/logs/*.log
+
+# Laravel compiled/cached files
+hrService/bootstrap/cache/*.php
+hubService/bootstrap/cache/*.php
+
+# .env files (use .env.example for reference)
+hrService/.env
+hubService/.env
+
+# Keep root .env.example files
+!hrService/.env.example
+!hubService/.env.example
+
+# Docker entrypoint scripts should be tracked (not ignored)
+!hrService/docker-entrypoint.sh
+!hubService/docker-entrypoint.sh
+
+# Build artifacts
+*.class
+*.o
+*.so
 
 # OS
 .DS_Store
@@ -20,3 +48,11 @@ Thumbs.db
 .idea/
 .vscode/
 *.swp
+*.swo
+*~
+
+# PHPUnit coverage
+hrService/.phpunit.cache/
+hubService/.phpunit.cache/
+hrService/.phpunit.result.cache
+hubService/.phpunit.result.cache

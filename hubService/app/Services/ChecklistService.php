@@ -76,7 +76,7 @@ class ChecklistService
         }
 
         $fieldResults    = $validator->validate($employee);
-        $completedFields = collect($fieldResults)->filter(fn ($f) => $f['complete'])->count();
+        $completedFields = collect($fieldResults)->filter(fn($f) => $f['complete'])->count();
         $totalFields     = count($fieldResults);
 
         return [

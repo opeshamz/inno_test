@@ -26,9 +26,9 @@ class EmployeeCrudTest extends TestCase
         ]);
 
         $response->assertStatus(201)
-                 ->assertJsonFragment(['name' => 'John'])
-                 ->assertJsonFragment(['country' => 'USA'])
-                 ->assertJsonFragment(['ssn' => '123-45-6789']);
+            ->assertJsonFragment(['name' => 'John'])
+            ->assertJsonFragment(['country' => 'USA'])
+            ->assertJsonFragment(['ssn' => '123-45-6789']);
 
         $this->assertDatabaseHas('employees', ['name' => 'John', 'country' => 'USA']);
     }
@@ -45,8 +45,8 @@ class EmployeeCrudTest extends TestCase
         ]);
 
         $response->assertStatus(201)
-                 ->assertJsonFragment(['name' => 'Hans'])
-                 ->assertJsonFragment(['country' => 'Germany']);
+            ->assertJsonFragment(['name' => 'Hans'])
+            ->assertJsonFragment(['country' => 'Germany']);
 
         $this->assertDatabaseHas('employees', ['name' => 'Hans', 'country' => 'Germany']);
     }
@@ -58,7 +58,7 @@ class EmployeeCrudTest extends TestCase
             'last_name' => 'User',
             'country'   => 'INVALID',
         ])->assertStatus(422)
-          ->assertJsonValidationErrors(['country']);
+            ->assertJsonValidationErrors(['country']);
     }
 
     public function test_create_fails_with_invalid_german_tax_id(): void
@@ -69,7 +69,7 @@ class EmployeeCrudTest extends TestCase
             'country'   => 'Germany',
             'tax_id'    => 'INVALID',
         ])->assertStatus(422)
-          ->assertJsonValidationErrors(['tax_id']);
+            ->assertJsonValidationErrors(['tax_id']);
     }
 
     // -----------------------------------------------------------------------
@@ -95,8 +95,8 @@ class EmployeeCrudTest extends TestCase
         $employee = Employee::create(['name' => 'Bob', 'last_name' => 'Jones', 'country' => 'USA', 'salary' => 50000]);
 
         $this->getJson("/api/employees/{$employee->id}")
-             ->assertOk()
-             ->assertJsonFragment(['name' => 'Bob']);
+            ->assertOk()
+            ->assertJsonFragment(['name' => 'Bob']);
     }
 
     // -----------------------------------------------------------------------
@@ -108,8 +108,8 @@ class EmployeeCrudTest extends TestCase
         $employee = Employee::create(['name' => 'Jane', 'last_name' => 'Doe', 'country' => 'USA', 'salary' => 50000]);
 
         $this->putJson("/api/employees/{$employee->id}", ['salary' => 80000])
-             ->assertOk()
-             ->assertJsonFragment(['salary' => 80000.0]);
+            ->assertOk()
+            ->assertJsonFragment(['salary' => 80000.0]);
     }
 
     // -----------------------------------------------------------------------
@@ -121,8 +121,8 @@ class EmployeeCrudTest extends TestCase
         $employee = Employee::create(['name' => 'Tom', 'last_name' => 'X', 'country' => 'USA', 'salary' => 45000]);
 
         $this->deleteJson("/api/employees/{$employee->id}")
-             ->assertOk()
-             ->assertJsonFragment(['message' => 'Employee deleted successfully.']);
+            ->assertOk()
+            ->assertJsonFragment(['message' => 'Employee deleted successfully.']);
 
         $this->assertDatabaseMissing('employees', ['id' => $employee->id]);
     }

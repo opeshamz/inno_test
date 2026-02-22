@@ -19,9 +19,13 @@ class ChecklistServiceTest extends TestCase
     {
         $employees = [
             [
-                'id' => 1, 'name' => 'John', 'last_name' => 'Doe',
-                'salary' => 75000, 'country' => 'USA',
-                'ssn' => '123-45-6789', 'address' => '123 Main St',
+                'id' => 1,
+                'name' => 'John',
+                'last_name' => 'Doe',
+                'salary' => 75000,
+                'country' => 'USA',
+                'ssn' => '123-45-6789',
+                'address' => '123 Main St',
             ],
         ];
 
@@ -37,9 +41,13 @@ class ChecklistServiceTest extends TestCase
     public function test_fully_complete_usa_employee_is_100_percent(): void
     {
         $employees = [[
-            'id' => 1, 'name' => 'John', 'last_name' => 'Doe',
-            'salary' => 75000, 'country' => 'USA',
-            'ssn' => '123-45-6789', 'address' => '123 Main St',
+            'id' => 1,
+            'name' => 'John',
+            'last_name' => 'Doe',
+            'salary' => 75000,
+            'country' => 'USA',
+            'ssn' => '123-45-6789',
+            'address' => '123 Main St',
         ]];
 
         $report = $this->service->buildReport($employees);
@@ -51,9 +59,13 @@ class ChecklistServiceTest extends TestCase
     public function test_incomplete_usa_employee_is_below_100_percent(): void
     {
         $employees = [[
-            'id' => 1, 'name' => 'Mike', 'last_name' => 'J',
-            'salary' => 0, 'country' => 'USA',
-            'ssn' => null, 'address' => '123 Main',
+            'id' => 1,
+            'name' => 'Mike',
+            'last_name' => 'J',
+            'salary' => 0,
+            'country' => 'USA',
+            'ssn' => null,
+            'address' => '123 Main',
         ]];
 
         $report = $this->service->buildReport($employees);
@@ -65,9 +77,13 @@ class ChecklistServiceTest extends TestCase
     public function test_fully_complete_germany_employee_is_100_percent(): void
     {
         $employees = [[
-            'id' => 2, 'name' => 'Hans', 'last_name' => 'Mueller',
-            'salary' => 65000, 'country' => 'Germany',
-            'goal' => 'Increase productivity', 'tax_id' => 'DE123456789',
+            'id' => 2,
+            'name' => 'Hans',
+            'last_name' => 'Mueller',
+            'salary' => 65000,
+            'country' => 'Germany',
+            'goal' => 'Increase productivity',
+            'tax_id' => 'DE123456789',
         ]];
 
         $report = $this->service->buildReport($employees);
@@ -87,14 +103,22 @@ class ChecklistServiceTest extends TestCase
     {
         $employees = [
             [
-                'id' => 1, 'name' => 'John', 'last_name' => 'Doe',
-                'salary' => 75000, 'country' => 'USA',
-                'ssn' => '123-45-6789', 'address' => '123 Main St', // all 3 complete
+                'id' => 1,
+                'name' => 'John',
+                'last_name' => 'Doe',
+                'salary' => 75000,
+                'country' => 'USA',
+                'ssn' => '123-45-6789',
+                'address' => '123 Main St', // all 3 complete
             ],
             [
-                'id' => 2, 'name' => 'Mike', 'last_name' => 'J',
-                'salary' => 0, 'country' => 'USA',
-                'ssn' => null, 'address' => 'Some St', // 1 of 3 complete
+                'id' => 2,
+                'name' => 'Mike',
+                'last_name' => 'J',
+                'salary' => 0,
+                'country' => 'USA',
+                'ssn' => null,
+                'address' => 'Some St', // 1 of 3 complete
             ],
         ];
 
@@ -107,8 +131,11 @@ class ChecklistServiceTest extends TestCase
     public function test_unknown_country_returns_empty_checklist(): void
     {
         $employees = [[
-            'id' => 99, 'name' => 'X', 'last_name' => 'Y',
-            'salary' => 50000, 'country' => 'Japan',
+            'id' => 99,
+            'name' => 'X',
+            'last_name' => 'Y',
+            'salary' => 50000,
+            'country' => 'Japan',
         ]];
 
         $report = $this->service->buildReport($employees);

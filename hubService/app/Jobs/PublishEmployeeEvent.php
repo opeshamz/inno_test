@@ -33,9 +33,7 @@ class PublishEmployeeEvent implements ShouldQueue
     public int $tries   = 3;
     public int $backoff = 10;
 
-    public function __construct(public readonly array $payload)
-    {
-    }
+    public function __construct(public readonly array $payload) {}
 
     public function handle(
         CacheService   $cacheService,
@@ -85,10 +83,10 @@ class PublishEmployeeEvent implements ShouldQueue
             $employee = $data['employee'] ?? [];
 
             broadcast(new EmployeeDataUpdated(
-                eventType:       $eventType,
-                country:         $country,
-                employeeId:      $employeeId,
-                payload:         $employee,
+                eventType: $eventType,
+                country: $country,
+                employeeId: $employeeId,
+                payload: $employee,
                 checklistSummary: $checklistReport['summary'],
             ));
 

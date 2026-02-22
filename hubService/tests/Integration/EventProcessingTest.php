@@ -56,13 +56,17 @@ class EventProcessingTest extends TestCase
         // Mock HR API to return fresh employees
         $this->mock(HrApiService::class, function ($mock) {
             $mock->shouldReceive('getEmployeesByCountry')
-                 ->with('USA')
-                 ->once()
-                 ->andReturn([[
-                     'id' => 1, 'name' => 'John', 'last_name' => 'Doe',
-                     'salary' => 80000, 'country' => 'USA',
-                     'ssn' => '123-45-6789', 'address' => '123 Main St',
-                 ]]);
+                ->with('USA')
+                ->once()
+                ->andReturn([[
+                    'id' => 1,
+                    'name' => 'John',
+                    'last_name' => 'Doe',
+                    'salary' => 80000,
+                    'country' => 'USA',
+                    'ssn' => '123-45-6789',
+                    'address' => '123 Main St',
+                ]]);
         });
 
         Event::fake();
@@ -86,11 +90,15 @@ class EventProcessingTest extends TestCase
 
         $this->mock(HrApiService::class, function ($mock) {
             $mock->shouldReceive('getEmployeesByCountry')
-                 ->andReturn([[
-                     'id' => 1, 'name' => 'John', 'last_name' => 'Doe',
-                     'salary' => 80000, 'country' => 'USA',
-                     'ssn' => '123-45-6789', 'address' => '123 Main St',
-                 ]]);
+                ->andReturn([[
+                    'id' => 1,
+                    'name' => 'John',
+                    'last_name' => 'Doe',
+                    'salary' => 80000,
+                    'country' => 'USA',
+                    'ssn' => '123-45-6789',
+                    'address' => '123 Main St',
+                ]]);
         });
 
         $job = new PublishEmployeeEvent($this->makePayload('EmployeeUpdated'));
@@ -130,12 +138,16 @@ class EventProcessingTest extends TestCase
 
         $this->mock(HrApiService::class, function ($mock) {
             $mock->shouldReceive('getEmployeesByCountry')
-                 ->with('Germany')
-                 ->andReturn([[
-                     'id' => 3, 'name' => 'Hans', 'last_name' => 'M',
-                     'salary' => 65000, 'country' => 'Germany',
-                     'goal' => 'productivity', 'tax_id' => 'DE123456789',
-                 ]]);
+                ->with('Germany')
+                ->andReturn([[
+                    'id' => 3,
+                    'name' => 'Hans',
+                    'last_name' => 'M',
+                    'salary' => 65000,
+                    'country' => 'Germany',
+                    'goal' => 'productivity',
+                    'tax_id' => 'DE123456789',
+                ]]);
         });
 
         $payload = [

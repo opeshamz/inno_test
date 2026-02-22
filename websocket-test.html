@@ -1,266 +1,444 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Hub Service — WebSocket Live Test</title>
-  <style>
-    * { box-sizing: border-box; margin: 0; padding: 0; }
-    body { font-family: 'Segoe UI', system-ui, sans-serif; background: #0f172a; color: #e2e8f0; padding: 24px; }
-    h1 { color: #7dd3fc; margin-bottom: 8px; }
-    .subtitle { color: #94a3b8; margin-bottom: 24px; font-size: 14px; }
-    .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(340px, 1fr)); gap: 20px; }
-    .card { background: #1e293b; border-radius: 12px; padding: 20px; border: 1px solid #334155; }
-    .card h2 { font-size: 14px; font-weight: 600; color: #7dd3fc; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 12px; }
-    .status { display: flex; align-items: center; gap: 8px; font-size: 13px; margin-bottom: 16px; }
-    .dot { width: 10px; height: 10px; border-radius: 50%; background: #ef4444; flex-shrink: 0; }
-    .dot.connected { background: #22c55e; }
-    .dot.connecting { background: #f59e0b; animation: pulse 1s infinite; }
-    @keyframes pulse { 0%,100% { opacity: 1 } 50% { opacity: .4 } }
-    #log { background: #0f172a; border-radius: 8px; padding: 12px; height: 400px; overflow-y: auto; font-family: 'Fira Code', monospace; font-size: 12px; border: 1px solid #1e293b; }
-    .log-entry { border-bottom: 1px solid #1e293b; padding: 6px 0; }
-    .log-entry:last-child { border-bottom: none; }
-    .log-ts { color: #64748b; margin-right: 8px; }
-    .log-evt { color: #a78bfa; }
-    .log-ch  { color: #34d399; }
-    .log-data { color: #fbbf24; white-space: pre-wrap; }
-    .controls { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 16px; }
-    button { padding: 8px 16px; border: none; border-radius: 8px; cursor: pointer; font-size: 13px; font-weight: 600; transition: opacity .15s; }
-    button:hover { opacity: .85; }
-    .btn-primary { background: #3b82f6; color: #fff; }
-    .btn-success { background: #22c55e; color: #fff; }
-    .btn-warning { background: #f59e0b; color: #000; }
-    .btn-danger  { background: #ef4444; color: #fff; }
-    .form-row { display: flex; flex-direction: column; gap: 6px; margin-bottom: 12px; }
-    label { font-size: 12px; color: #94a3b8; }
-    select, input { background: #0f172a; color: #e2e8f0; border: 1px solid #334155; border-radius: 6px; padding: 7px 10px; font-size: 13px; width: 100%; }
-    .badge { display: inline-block; padding: 2px 8px; border-radius: 999px; font-size: 11px; font-weight: 600; background: #1e40af; color: #bfdbfe; }
-    #event-count { font-size: 28px; font-weight: 700; color: #7dd3fc; }
-    #checklist-data { font-size: 12px; }
-    .progress { background: #1e293b; border-radius: 999px; height: 8px; overflow: hidden; margin-top: 6px; }
-    .progress-bar { height: 100%; background: #22c55e; transition: width .4s; }
-  </style>
-</head>
-<body>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Hub Service — WebSocket Live Test</title>
+    <style>
+      * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+      body {
+        font-family: "Segoe UI", system-ui, sans-serif;
+        background: #0f172a;
+        color: #e2e8f0;
+        padding: 24px;
+      }
+      h1 {
+        color: #7dd3fc;
+        margin-bottom: 8px;
+      }
+      .subtitle {
+        color: #94a3b8;
+        margin-bottom: 24px;
+        font-size: 14px;
+      }
+      .grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
+        gap: 20px;
+      }
+      .card {
+        background: #1e293b;
+        border-radius: 12px;
+        padding: 20px;
+        border: 1px solid #334155;
+      }
+      .card h2 {
+        font-size: 14px;
+        font-weight: 600;
+        color: #7dd3fc;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        margin-bottom: 12px;
+      }
+      .status {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 13px;
+        margin-bottom: 16px;
+      }
+      .dot {
+        width: 10px;
+        height: 10px;
+        border-radius: 50%;
+        background: #ef4444;
+        flex-shrink: 0;
+      }
+      .dot.connected {
+        background: #22c55e;
+      }
+      .dot.connecting {
+        background: #f59e0b;
+        animation: pulse 1s infinite;
+      }
+      @keyframes pulse {
+        0%,
+        100% {
+          opacity: 1;
+        }
+        50% {
+          opacity: 0.4;
+        }
+      }
+      #log {
+        background: #0f172a;
+        border-radius: 8px;
+        padding: 12px;
+        height: 400px;
+        overflow-y: auto;
+        font-family: "Fira Code", monospace;
+        font-size: 12px;
+        border: 1px solid #1e293b;
+      }
+      .log-entry {
+        border-bottom: 1px solid #1e293b;
+        padding: 6px 0;
+      }
+      .log-entry:last-child {
+        border-bottom: none;
+      }
+      .log-ts {
+        color: #64748b;
+        margin-right: 8px;
+      }
+      .log-evt {
+        color: #a78bfa;
+      }
+      .log-ch {
+        color: #34d399;
+      }
+      .log-data {
+        color: #fbbf24;
+        white-space: pre-wrap;
+      }
+      .controls {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        margin-bottom: 16px;
+      }
+      button {
+        padding: 8px 16px;
+        border: none;
+        border-radius: 8px;
+        cursor: pointer;
+        font-size: 13px;
+        font-weight: 600;
+        transition: opacity 0.15s;
+      }
+      button:hover {
+        opacity: 0.85;
+      }
+      .btn-primary {
+        background: #3b82f6;
+        color: #fff;
+      }
+      .btn-success {
+        background: #22c55e;
+        color: #fff;
+      }
+      .btn-warning {
+        background: #f59e0b;
+        color: #000;
+      }
+      .btn-danger {
+        background: #ef4444;
+        color: #fff;
+      }
+      .form-row {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+        margin-bottom: 12px;
+      }
+      label {
+        font-size: 12px;
+        color: #94a3b8;
+      }
+      select,
+      input {
+        background: #0f172a;
+        color: #e2e8f0;
+        border: 1px solid #334155;
+        border-radius: 6px;
+        padding: 7px 10px;
+        font-size: 13px;
+        width: 100%;
+      }
+      .badge {
+        display: inline-block;
+        padding: 2px 8px;
+        border-radius: 999px;
+        font-size: 11px;
+        font-weight: 600;
+        background: #1e40af;
+        color: #bfdbfe;
+      }
+      #event-count {
+        font-size: 28px;
+        font-weight: 700;
+        color: #7dd3fc;
+      }
+      #checklist-data {
+        font-size: 12px;
+      }
+      .progress {
+        background: #1e293b;
+        border-radius: 999px;
+        height: 8px;
+        overflow: hidden;
+        margin-top: 6px;
+      }
+      .progress-bar {
+        height: 100%;
+        background: #22c55e;
+        transition: width 0.4s;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Hub Service — Real-Time WebSocket Test</h1>
+    <p class="subtitle">
+      Connect to Soketi and watch employee + checklist events update in real
+      time.
+    </p>
 
-<h1>Hub Service — Real-Time WebSocket Test</h1>
-<p class="subtitle">Connect to Soketi and watch employee + checklist events update in real time.</p>
+    <div class="grid">
+      <!-- Connection Panel -->
+      <div class="card">
+        <h2>Connection</h2>
+        <div class="status">
+          <span class="dot" id="dot"></span>
+          <span id="status-text">Disconnected</span>
+        </div>
 
-<div class="grid">
+        <div class="form-row">
+          <label>Soketi Host (ws)</label>
+          <input id="wsHost" value="localhost" />
+        </div>
+        <div class="form-row">
+          <label>Soketi Port</label>
+          <input id="wsPort" value="6001" />
+        </div>
+        <div class="form-row">
+          <label>App Key</label>
+          <input id="appKey" value="innoscripta-key" />
+        </div>
 
-  <!-- Connection Panel -->
-  <div class="card">
-    <h2>Connection</h2>
-    <div class="status">
-      <span class="dot" id="dot"></span>
-      <span id="status-text">Disconnected</span>
+        <div class="controls">
+          <button class="btn-success" onclick="connect()">Connect</button>
+          <button class="btn-danger" onclick="disconnect()">Disconnect</button>
+        </div>
+
+        <h2 style="margin-top: 12px">Subscriptions</h2>
+        <div class="form-row">
+          <label>Country</label>
+          <select id="country">
+            <option value="USA">USA</option>
+            <option value="Germany">Germany</option>
+          </select>
+        </div>
+
+        <div class="controls">
+          <button class="btn-primary" onclick="subscribe()">Subscribe</button>
+          <button class="btn-warning" onclick="clearLog()">Clear Log</button>
+        </div>
+
+        <div
+          id="subscriptions"
+          style="margin-top: 8px; display: flex; flex-wrap: wrap; gap: 6px"
+        ></div>
+      </div>
+
+      <!-- Live Event Log -->
+      <div class="card">
+        <h2>
+          Event Log
+          <span id="event-count-badge" class="badge" style="margin-left: 6px"
+            >0 events</span
+          >
+        </h2>
+        <div id="log">
+          <span style="color: #64748b">Waiting for events...</span>
+        </div>
+      </div>
+
+      <!-- Checklist Stats -->
+      <div class="card">
+        <h2>Latest Checklist Update</h2>
+        <div id="event-count" style="margin-bottom: 4px">—</div>
+        <div style="color: #94a3b8; font-size: 13px; margin-bottom: 12px">
+          Overall completion
+        </div>
+        <div class="progress">
+          <div class="progress-bar" id="progress-bar" style="width: 0%"></div>
+        </div>
+        <div id="checklist-data" style="margin-top: 16px; color: #94a3b8">
+          No updates yet.
+        </div>
+      </div>
     </div>
 
-    <div class="form-row">
-      <label>Soketi Host (ws)</label>
-      <input id="wsHost" value="localhost" />
-    </div>
-    <div class="form-row">
-      <label>Soketi Port</label>
-      <input id="wsPort" value="6001" />
-    </div>
-    <div class="form-row">
-      <label>App Key</label>
-      <input id="appKey" value="innoscripta-key" />
-    </div>
+    <!-- Pusher JS via CDN -->
+    <script src="https://js.pusher.com/8.0.1/pusher.min.js"></script>
+    <script>
+      let pusher = null;
+      let eventCount = 0;
+      const subscribedChannels = {};
 
-    <div class="controls">
-      <button class="btn-success" onclick="connect()">Connect</button>
-      <button class="btn-danger" onclick="disconnect()">Disconnect</button>
-    </div>
+      function ts() {
+        return new Date().toISOString().split("T")[1].replace("Z", "");
+      }
 
-    <h2 style="margin-top:12px">Subscriptions</h2>
-    <div class="form-row">
-      <label>Country</label>
-      <select id="country">
-        <option value="USA">USA</option>
-        <option value="Germany">Germany</option>
-      </select>
-    </div>
+      function log(channel, event, data) {
+        const logEl = document.getElementById("log");
+        const wasAtBottom =
+          logEl.scrollTop + logEl.clientHeight >= logEl.scrollHeight - 10;
 
-    <div class="controls">
-      <button class="btn-primary" onclick="subscribe()">Subscribe</button>
-      <button class="btn-warning" onclick="clearLog()">Clear Log</button>
-    </div>
-
-    <div id="subscriptions" style="margin-top:8px; display:flex; flex-wrap:wrap; gap:6px;"></div>
-  </div>
-
-  <!-- Live Event Log -->
-  <div class="card">
-    <h2>Event Log <span id="event-count-badge" class="badge" style="margin-left:6px">0 events</span></h2>
-    <div id="log"><span style="color:#64748b">Waiting for events...</span></div>
-  </div>
-
-  <!-- Checklist Stats -->
-  <div class="card">
-    <h2>Latest Checklist Update</h2>
-    <div id="event-count" style="margin-bottom:4px">—</div>
-    <div style="color:#94a3b8; font-size:13px; margin-bottom:12px">Overall completion</div>
-    <div class="progress"><div class="progress-bar" id="progress-bar" style="width:0%"></div></div>
-    <div id="checklist-data" style="margin-top:16px; color:#94a3b8">No updates yet.</div>
-  </div>
-
-</div>
-
-<!-- Pusher JS via CDN -->
-<script src="https://js.pusher.com/8.0.1/pusher.min.js"></script>
-<script>
-  let pusher = null;
-  let eventCount = 0;
-  const subscribedChannels = {};
-
-  function ts() {
-    return new Date().toISOString().split('T')[1].replace('Z', '');
-  }
-
-  function log(channel, event, data) {
-    const logEl = document.getElementById('log');
-    const wasAtBottom = logEl.scrollTop + logEl.clientHeight >= logEl.scrollHeight - 10;
-
-    const entry = document.createElement('div');
-    entry.className = 'log-entry';
-    entry.innerHTML = `
+        const entry = document.createElement("div");
+        entry.className = "log-entry";
+        entry.innerHTML = `
       <span class="log-ts">${ts()}</span>
       <span class="log-ch">[${channel}]</span>
       <span class="log-evt"> ${event}</span><br>
       <span class="log-data">${JSON.stringify(data, null, 2)}</span>
     `;
 
-    // Remove placeholder
-    if (logEl.children.length === 1 && logEl.children[0].tagName === 'SPAN') {
-      logEl.innerHTML = '';
-    }
-    logEl.appendChild(entry);
-
-    if (wasAtBottom) logEl.scrollTop = logEl.scrollHeight;
-
-    eventCount++;
-    document.getElementById('event-count-badge').textContent = `${eventCount} event${eventCount !== 1 ? 's' : ''}`;
-  }
-
-  function setStatus(state, text) {
-    const dot = document.getElementById('dot');
-    const statusText = document.getElementById('status-text');
-    dot.className = 'dot ' + state;
-    statusText.textContent = text;
-  }
-
-  function connect() {
-    if (pusher) pusher.disconnect();
-
-    const host    = document.getElementById('wsHost').value;
-    const port    = parseInt(document.getElementById('wsPort').value);
-    const appKey  = document.getElementById('appKey').value;
-
-    setStatus('connecting', 'Connecting...');
-
-    pusher = new Pusher(appKey, {
-      wsHost: host,
-      wsPort: port,
-      forceTLS: false,
-      disableStats: true,
-      enabledTransports: ['ws', 'wss'],
-      cluster: 'mt1',
-    });
-
-    pusher.connection.bind('connected', () => {
-      setStatus('connected', `Connected — Socket ID: ${pusher.connection.socket_id}`);
-      log('system', 'connected', { socket_id: pusher.connection.socket_id });
-    });
-
-    pusher.connection.bind('disconnected', () => {
-      setStatus('', 'Disconnected');
-      log('system', 'disconnected', {});
-    });
-
-    pusher.connection.bind('error', (err) => {
-      setStatus('', 'Error');
-      log('system', 'error', err);
-    });
-  }
-
-  function subscribe() {
-    if (!pusher || pusher.connection.state !== 'connected') {
-      alert('Connect first!');
-      return;
-    }
-
-    const country = document.getElementById('country').value;
-    const channels = [
-      `employees.${country}`,
-      `checklists.${country}`,
-    ];
-
-    channels.forEach(channelName => {
-      if (subscribedChannels[channelName]) return;
-
-      const ch = pusher.subscribe(channelName);
-
-      ch.bind('EmployeeDataUpdated', (data) => {
-        log(channelName, 'EmployeeDataUpdated', data);
-        updateChecklist(data);
-      });
-
-      // Catch-all for other events
-      ch.bind_global((eventName, data) => {
-        if (eventName !== 'EmployeeDataUpdated' && !eventName.startsWith('pusher:')) {
-          log(channelName, eventName, data);
+        // Remove placeholder
+        if (
+          logEl.children.length === 1 &&
+          logEl.children[0].tagName === "SPAN"
+        ) {
+          logEl.innerHTML = "";
         }
-      });
+        logEl.appendChild(entry);
 
-      subscribedChannels[channelName] = ch;
+        if (wasAtBottom) logEl.scrollTop = logEl.scrollHeight;
 
-      const badge = document.createElement('span');
-      badge.className = 'badge';
-      badge.textContent = channelName;
-      document.getElementById('subscriptions').appendChild(badge);
-    });
+        eventCount++;
+        document.getElementById("event-count-badge").textContent =
+          `${eventCount} event${eventCount !== 1 ? "s" : ""}`;
+      }
 
-    log('system', 'subscribed', { channels });
-  }
+      function setStatus(state, text) {
+        const dot = document.getElementById("dot");
+        const statusText = document.getElementById("status-text");
+        dot.className = "dot " + state;
+        statusText.textContent = text;
+      }
 
-  function updateChecklist(data) {
-    const summary = data.checklist_summary;
-    if (!summary) return;
+      function connect() {
+        if (pusher) pusher.disconnect();
 
-    const pct = summary.overall_completion || 0;
+        const host = document.getElementById("wsHost").value;
+        const port = parseInt(document.getElementById("wsPort").value);
+        const appKey = document.getElementById("appKey").value;
 
-    document.getElementById('event-count').textContent = `${pct}%`;
-    document.getElementById('progress-bar').style.width = `${pct}%`;
+        setStatus("connecting", "Connecting...");
 
-    const html = `
+        pusher = new Pusher(appKey, {
+          wsHost: host,
+          wsPort: port,
+          forceTLS: false,
+          disableStats: true,
+          enabledTransports: ["ws", "wss"],
+          cluster: "mt1",
+        });
+
+        pusher.connection.bind("connected", () => {
+          setStatus(
+            "connected",
+            `Connected — Socket ID: ${pusher.connection.socket_id}`,
+          );
+          log("system", "connected", {
+            socket_id: pusher.connection.socket_id,
+          });
+        });
+
+        pusher.connection.bind("disconnected", () => {
+          setStatus("", "Disconnected");
+          log("system", "disconnected", {});
+        });
+
+        pusher.connection.bind("error", (err) => {
+          setStatus("", "Error");
+          log("system", "error", err);
+        });
+      }
+
+      function subscribe() {
+        if (!pusher || pusher.connection.state !== "connected") {
+          alert("Connect first!");
+          return;
+        }
+
+        const country = document.getElementById("country").value;
+        const channels = [`employees.${country}`, `checklists.${country}`];
+
+        channels.forEach((channelName) => {
+          if (subscribedChannels[channelName]) return;
+
+          const ch = pusher.subscribe(channelName);
+
+          ch.bind("EmployeeDataUpdated", (data) => {
+            log(channelName, "EmployeeDataUpdated", data);
+            updateChecklist(data);
+          });
+
+          // Catch-all for other events
+          ch.bind_global((eventName, data) => {
+            if (
+              eventName !== "EmployeeDataUpdated" &&
+              !eventName.startsWith("pusher:")
+            ) {
+              log(channelName, eventName, data);
+            }
+          });
+
+          subscribedChannels[channelName] = ch;
+
+          const badge = document.createElement("span");
+          badge.className = "badge";
+          badge.textContent = channelName;
+          document.getElementById("subscriptions").appendChild(badge);
+        });
+
+        log("system", "subscribed", { channels });
+      }
+
+      function updateChecklist(data) {
+        const summary = data.checklist_summary;
+        if (!summary) return;
+
+        const pct = summary.overall_completion || 0;
+
+        document.getElementById("event-count").textContent = `${pct}%`;
+        document.getElementById("progress-bar").style.width = `${pct}%`;
+
+        const html = `
       <table style="width:100%; border-collapse:collapse">
         <tr><td style="padding:3px 0; color:#94a3b8">Event Type</td><td>${data.event_type}</td></tr>
-        <tr><td style="padding:3px 0; color:#94a3b8">Employee ID</td><td>${data.employee_id || '—'}</td></tr>
+        <tr><td style="padding:3px 0; color:#94a3b8">Employee ID</td><td>${data.employee_id || "—"}</td></tr>
         <tr><td style="padding:3px 0; color:#94a3b8">Country</td><td>${data.country}</td></tr>
         <tr><td style="padding:3px 0; color:#94a3b8">Total Employees</td><td>${summary.total_employees}</td></tr>
         <tr><td style="padding:3px 0; color:#94a3b8">Completed fields</td><td>${summary.completed_fields} / ${summary.total_fields}</td></tr>
         <tr><td style="padding:3px 0; color:#94a3b8">Completion</td><td>${pct}%</td></tr>
       </table>
     `;
-    document.getElementById('checklist-data').innerHTML = html;
-  }
+        document.getElementById("checklist-data").innerHTML = html;
+      }
 
-  function disconnect() {
-    if (pusher) {
-      pusher.disconnect();
-      pusher = null;
-    }
-    Object.keys(subscribedChannels).forEach(k => delete subscribedChannels[k]);
-    document.getElementById('subscriptions').innerHTML = '';
-  }
+      function disconnect() {
+        if (pusher) {
+          pusher.disconnect();
+          pusher = null;
+        }
+        Object.keys(subscribedChannels).forEach(
+          (k) => delete subscribedChannels[k],
+        );
+        document.getElementById("subscriptions").innerHTML = "";
+      }
 
-  function clearLog() {
-    document.getElementById('log').innerHTML = '<span style="color:#64748b">Log cleared.</span>';
-    eventCount = 0;
-    document.getElementById('event-count-badge').textContent = '0 events';
-  }
-</script>
-</body>
+      function clearLog() {
+        document.getElementById("log").innerHTML =
+          '<span style="color:#64748b">Log cleared.</span>';
+        eventCount = 0;
+        document.getElementById("event-count-badge").textContent = "0 events";
+      }
+    </script>
+  </body>
 </html>

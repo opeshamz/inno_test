@@ -18,20 +18,20 @@ class EmployeeControllerTest extends TestCase
     {
         $this->mock(HrApiService::class, function ($mock) use ($country, $employees) {
             $mock->shouldReceive('getEmployeesPaginated')
-                 ->with($country, 1, 15)
-                 ->once()
-                 ->andReturn([
-                     'data' => $employees,
-                     'meta' => ['total' => count($employees), 'last_page' => 1, 'current_page' => 1],
-                 ]);
+                ->with($country, 1, 15)
+                ->once()
+                ->andReturn([
+                    'data' => $employees,
+                    'meta' => ['total' => count($employees), 'last_page' => 1, 'current_page' => 1],
+                ]);
         });
     }
 
     public function test_requires_country_param(): void
     {
         $this->getJson('/api/employees')
-             ->assertStatus(422)
-             ->assertJsonValidationErrors(['country']);
+            ->assertStatus(422)
+            ->assertJsonValidationErrors(['country']);
     }
 
     public function test_usa_employees_include_column_definitions(): void

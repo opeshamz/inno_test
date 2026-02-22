@@ -9,14 +9,14 @@ class SchemaControllerTest extends TestCase
     public function test_requires_country_param(): void
     {
         $this->getJson('/api/schema/dashboard')
-             ->assertStatus(422)
-             ->assertJsonValidationErrors(['country']);
+            ->assertStatus(422)
+            ->assertJsonValidationErrors(['country']);
     }
 
     public function test_non_existent_step_returns_404(): void
     {
         $this->getJson('/api/schema/nonexistent?country=USA')
-             ->assertNotFound();
+            ->assertNotFound();
     }
 
     public function test_usa_dashboard_schema_has_three_widgets(): void
@@ -41,14 +41,14 @@ class SchemaControllerTest extends TestCase
     {
         $response = $this->getJson('/api/schema/documentation?country=Germany');
         $response->assertOk()
-                 ->assertJsonPath('schema.step_id', 'documentation');
+            ->assertJsonPath('schema.step_id', 'documentation');
     }
 
     public function test_usa_documentation_step_returns_404(): void
     {
         // Documentation step only exists for Germany
         $this->getJson('/api/schema/documentation?country=USA')
-             ->assertNotFound();
+            ->assertNotFound();
     }
 
     public function test_each_widget_has_channel_for_real_time_updates(): void

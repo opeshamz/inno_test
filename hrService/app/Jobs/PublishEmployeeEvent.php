@@ -20,9 +20,7 @@ class PublishEmployeeEvent implements ShouldQueue
     public int $tries = 3;
     public int $backoff = 5;
 
-    public function __construct(public readonly array $payload)
-    {
-    }
+    public function __construct(public readonly array $payload) {}
 
     /**
      * When the HR Service dispatches this job onto the RabbitMQ queue,

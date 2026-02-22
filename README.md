@@ -34,29 +34,29 @@ The platform solves two key challenges:
 
 ### Services
 
-| Service         | Role                                                  | Port  |
-|-----------------|-------------------------------------------------------|-------|
-| **HR Service**  | Employee CRUD + RabbitMQ publisher                    | 8001  |
-| **Hub Service** | Event consumer, Checklist, Server-Driven UI APIs      | 8000  |
-| **Hub Worker**  | RabbitMQ queue worker (same image, worker mode)       | —     |
-| **PostgreSQL**  | Relational database (two DBs, one instance)           | 5432  |
-| **RabbitMQ**    | Message broker — Management UI on port 15672          | 5672  |
-| **Redis**       | Cache layer for HubService                            | 6379  |
-| **Soketi**      | Self-hosted Pusher-compatible WebSocket server        | 6001  |
+| Service         | Role                                             | Port |
+| --------------- | ------------------------------------------------ | ---- |
+| **HR Service**  | Employee CRUD + RabbitMQ publisher               | 8001 |
+| **Hub Service** | Event consumer, Checklist, Server-Driven UI APIs | 8000 |
+| **Hub Worker**  | RabbitMQ queue worker (same image, worker mode)  | —    |
+| **PostgreSQL**  | Relational database (two DBs, one instance)      | 5432 |
+| **RabbitMQ**    | Message broker — Management UI on port 15672     | 5672 |
+| **Redis**       | Cache layer for HubService                       | 6379 |
+| **Soketi**      | Self-hosted Pusher-compatible WebSocket server   | 6001 |
 
 ---
 
 ## Technology Stack
 
-| Layer            | Choice          | Justification                                                        |
-|------------------|-----------------|----------------------------------------------------------------------|
-| Framework        | Laravel 10      | Built-in Queue, Events, Cache, Broadcasting abstractions             |
-| Message Broker   | RabbitMQ        | Reliable delivery, management UI, AMQP protocol                      |
-| Cache            | Redis           | Sub-millisecond reads, pattern-based key eviction, native in Laravel |
-| WebSockets       | Soketi          | Self-hosted, Pusher-compatible, no external dependency or free-tier limits |
-| Database         | PostgreSQL      | JSONB support if needed later, strong ACID guarantees                |
-| Queue Driver     | `vladimir-yuldashev/laravel-queue-rabbitmq` | Official Laravel-ecosystem RabbitMQ driver |
-| Broadcasting     | `pusher/pusher-php-server` | Works against Soketi (Pusher-compatible protocol)       |
+| Layer          | Choice                                      | Justification                                                              |
+| -------------- | ------------------------------------------- | -------------------------------------------------------------------------- |
+| Framework      | Laravel 10                                  | Built-in Queue, Events, Cache, Broadcasting abstractions                   |
+| Message Broker | RabbitMQ                                    | Reliable delivery, management UI, AMQP protocol                            |
+| Cache          | Redis                                       | Sub-millisecond reads, pattern-based key eviction, native in Laravel       |
+| WebSockets     | Soketi                                      | Self-hosted, Pusher-compatible, no external dependency or free-tier limits |
+| Database       | PostgreSQL                                  | JSONB support if needed later, strong ACID guarantees                      |
+| Queue Driver   | `vladimir-yuldashev/laravel-queue-rabbitmq` | Official Laravel-ecosystem RabbitMQ driver                                 |
+| Broadcasting   | `pusher/pusher-php-server`                  | Works against Soketi (Pusher-compatible protocol)                          |
 
 ---
 
@@ -155,11 +155,11 @@ in production you'd track page keys explicitly or use a tag-based cache library.
 
 ### WebSocket Channel Design
 
-| Channel                       | Subscribers               |
-|-------------------------------|---------------------------|
-| `employees.{COUNTRY}`         | Employee list views        |
-| `checklists.{COUNTRY}`        | Checklist dashboard        |
-| `employees.{COUNTRY}.{ID}`    | Employee detail pages      |
+| Channel                    | Subscribers           |
+| -------------------------- | --------------------- |
+| `employees.{COUNTRY}`      | Employee list views   |
+| `checklists.{COUNTRY}`     | Checklist dashboard   |
+| `employees.{COUNTRY}.{ID}` | Employee detail pages |
 
 Public channels are used (no auth). In production, private channels with Sanctum
 tokens would be appropriate for sensitive payloads (SSN, salary).
@@ -173,6 +173,7 @@ The payload is a plain PHP array, keeping the contract explicit and version-frie
 ### Country Extensibility
 
 New countries require:
+
 1. A new `CountryValidatorInterface` implementation in `app/Validators/`
 2. Registering it in `ChecklistService::$validators`
 3. Adding column config in `EmployeeController::$columnConfig`
@@ -192,8 +193,8 @@ so staleness beyond 5 minutes would only occur if the Hub Worker is down.
 
 ### Prerequisites
 
-- Docker ≥ 24  
-- Docker Compose ≥ 2.20  
+- Docker ≥ 24
+- Docker Compose ≥ 2.20
 - (Optional) PHP 8.2 + Composer — only needed to run tests locally
 
 ### Start Everything
@@ -237,15 +238,16 @@ Open [websocket-test.html](websocket-test.html) directly in your browser. No ser
 
 ### HR Service (port 8001)
 
-| Method | Endpoint                | Description                              |
-|--------|-------------------------|------------------------------------------|
-| GET    | `/api/employees`        | List employees (`?country=USA`)          |
-| POST   | `/api/employees`        | Create employee                          |
-| GET    | `/api/employees/{id}`   | Get single employee                      |
-| PUT    | `/api/employees/{id}`   | Update employee                          |
-| DELETE | `/api/employees/{id}`   | Delete employee                          |
+| Method | Endpoint              | Description                     |
+| ------ | --------------------- | ------------------------------- |
+| GET    | `/api/employees`      | List employees (`?country=USA`) |
+| POST   | `/api/employees`      | Create employee                 |
+| GET    | `/api/employees/{id}` | Get single employee             |
+| PUT    | `/api/employees/{id}` | Update employee                 |
+| DELETE | `/api/employees/{id}` | Delete employee                 |
 
 **Create USA Employee**
+
 ```bash
 curl -X POST http://localhost:8001/api/employees \
   -H "Content-Type: application/json" \
@@ -260,6 +262,7 @@ curl -X POST http://localhost:8001/api/employees \
 ```
 
 **Create Germany Employee**
+
 ```bash
 curl -X POST http://localhost:8001/api/employees \
   -H "Content-Type: application/json" \
@@ -286,6 +289,7 @@ curl "http://localhost:8000/api/checklists?country=USA"
 ```
 
 **Response:**
+
 ```json
 {
   "country": "USA",
@@ -307,9 +311,9 @@ curl "http://localhost:8000/api/checklists?country=USA"
         "completion_rate": 100,
         "is_complete": true,
         "fields": {
-          "ssn":     { "complete": true,  "message": "SSN is present." },
-          "salary":  { "complete": true,  "message": "Salary is set." },
-          "address": { "complete": true,  "message": "Address is present." }
+          "ssn": { "complete": true, "message": "SSN is present." },
+          "salary": { "complete": true, "message": "Salary is set." },
+          "address": { "complete": true, "message": "Address is present." }
         }
       }
     ]
@@ -347,13 +351,14 @@ curl "http://localhost:8000/api/schema/dashboard?country=Germany"
 
 The test page (`websocket-test.html`) demonstrates real-time updates:
 
-1. Open the file in your browser  
+1. Open the file in your browser
 2. Click **Connect** (default host/port targets Soketi on localhost:6001)
 3. Select a country and click **Subscribe**
 4. In another terminal, update an employee via the HR Service API
 5. The event instantly appears in the test page
 
 **Demo flow:**
+
 ```bash
 # Watch events in test page, then run:
 curl -X PUT http://localhost:8001/api/employees/1 \
@@ -383,10 +388,10 @@ php artisan test
 
 **Coverage:** 46 tests across three suites:
 
-| Suite       | Tests | What is tested                                            |
-|-------------|-------|-----------------------------------------------------------|
-| Unit        | 16    | `UsaCountryValidator`, `GermanyCountryValidator`, `ChecklistService` |
-| Feature     | 26    | All 4 API endpoints, validation errors, caching, SSN masking |
+| Suite       | Tests | What is tested                                                           |
+| ----------- | ----- | ------------------------------------------------------------------------ |
+| Unit        | 16    | `UsaCountryValidator`, `GermanyCountryValidator`, `ChecklistService`     |
+| Feature     | 26    | All 4 API endpoints, validation errors, caching, SSN masking             |
 | Integration | 4     | Full event pipeline: RabbitMQ → cache invalidation → WebSocket broadcast |
 
 ### Run Specific Suite

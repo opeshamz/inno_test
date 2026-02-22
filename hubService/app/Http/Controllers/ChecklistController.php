@@ -22,8 +22,7 @@ class ChecklistController extends Controller
         private readonly ChecklistService $checklistService,
         private readonly CacheService     $cacheService,
         private readonly HrApiService     $hrApiService
-    ) {
-    }
+    ) {}
 
     public function index(Request $request): JsonResponse
     {

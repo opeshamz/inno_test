@@ -38,8 +38,7 @@ class EmployeeController extends Controller
     public function __construct(
         private readonly HrApiService $hrApiService,
         private readonly CacheService $cacheService
-    ) {
-    }
+    ) {}
 
     public function index(Request $request): JsonResponse
     {
@@ -57,7 +56,7 @@ class EmployeeController extends Controller
             $country,
             $page,
             $perPage,
-            fn () => $this->hrApiService->getEmployeesPaginated($country, $page, $perPage)
+            fn() => $this->hrApiService->getEmployeesPaginated($country, $page, $perPage)
         );
 
         // Mask SSN for USA employees
