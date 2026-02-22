@@ -31,4 +31,12 @@ return [
         'region' => env('AWS_DEFAULT_REGION', 'us-east-1'),
     ],
 
+    'hr_service' => [
+        'url' => env('HR_SERVICE_URL', 'http://hr-service:8001'),
+    ],
+
+    'pusher' => [
+        'beams_secret' => env('PUSHER_BEAMS_SECRET'),
+    ],
+
 ];

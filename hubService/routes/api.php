@@ -1,19 +1,21 @@
 <?php
 
-use Illuminate\Http\Request;
+use App\Http\Controllers\ChecklistController;
+use App\Http\Controllers\EmployeeController;
+use App\Http\Controllers\SchemaController;
+use App\Http\Controllers\StepsController;
 use Illuminate\Support\Facades\Route;
 
 /*
 |--------------------------------------------------------------------------
-| API Routes
+| API Routes - Hub Service
 |--------------------------------------------------------------------------
-|
-| Here is where you can register API routes for your application. These
-| routes are loaded by the RouteServiceProvider and all of them will
-| be assigned to the "api" middleware group. Make something great!
-|
 */
 
-Route::middleware('auth:sanctum')->get('/user', function (Request $request) {
-    return $request->user();
-});
+// Feature 1: Checklist
+Route::get('/checklists', [ChecklistController::class, 'index']);
+
+// Feature 2: Server-Driven UI
+Route::get('/steps',              [StepsController::class, 'index']);
+Route::get('/employees',          [EmployeeController::class, 'index']);
+Route::get('/schema/{step_id}',   [SchemaController::class, 'show']);

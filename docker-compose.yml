@@ -1,0 +1,259 @@
+version: "3.9"
+
+# =============================================================================
+# Innoscripta — Event-Driven Multi-Country HR Platform
+# Start everything:  docker-compose up -d
+# =============================================================================
+
+services:
+
+  # ---------------------------------------------------------------------------
+  # PostgreSQL — shared database (two separate DBs, one Postgres instance)
+  # ---------------------------------------------------------------------------
+  postgres:
+    image: postgres:16-alpine
+    container_name: innoscripta_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: secret
+      POSTGRES_MULTIPLE_DATABASES: "hr_service,hub_service"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./docker/postgres/init-multiple-dbs.sh:/docker-entrypoint-initdb.d/init-multiple-dbs.sh
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - innoscripta
+
+  # ---------------------------------------------------------------------------
+  # RabbitMQ — message broker with management UI
+  # Management UI: http://localhost:15672  (guest / guest)
+  # ---------------------------------------------------------------------------
+  rabbitmq:
+    image: rabbitmq:3.13-management-alpine
+    container_name: innoscripta_rabbitmq
+    restart: unless-stopped
+    environment:
+      RABBITMQ_DEFAULT_USER: guest
+      RABBITMQ_DEFAULT_PASS: guest
+    ports:
+      - "5672:5672"     # AMQP
+      - "15672:15672"   # Management UI
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "ping"]
+      interval: 15s
+      timeout: 10s
+      retries: 5
+    networks:
+      - innoscripta
+
+  # ---------------------------------------------------------------------------
+  # Redis — cache for HubService checklist & employee data
+  # ---------------------------------------------------------------------------
+  redis:
+    image: redis:7-alpine
+    container_name: innoscripta_redis
+    restart: unless-stopped
+    command: redis-server --appendonly yes
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - innoscripta
+
+  # ---------------------------------------------------------------------------
+  # Soketi — self-hosted Pusher-compatible WebSocket server
+  # WebSocket: ws://localhost:6001
+  # ---------------------------------------------------------------------------
+  soketi:
+    image: quay.io/soketi/soketi:latest-16-alpine
+    container_name: innoscripta_soketi
+    restart: unless-stopped
+    environment:
+      SOKETI_DEBUG: "1"
+      SOKETI_DEFAULT_APP_ID: innoscripta
+      SOKETI_DEFAULT_APP_KEY: innoscripta-key
+      SOKETI_DEFAULT_APP_SECRET: innoscripta-secret
+    ports:
+      - "6001:6001"   # WebSocket
+      - "9601:9601"   # Metrics
+    networks:
+      - innoscripta
+
+  # ---------------------------------------------------------------------------
+  # HR Service — employee CRUD + RabbitMQ publisher
+  # API: http://localhost:8001/api
+  # ---------------------------------------------------------------------------
+  hr-service:
+    build:
+      context: ./hrService
+      dockerfile: Dockerfile
+    container_name: innoscripta_hr_service
+    restart: unless-stopped
+    environment:
+      APP_NAME: "HR Service"
+      APP_ENV: local
+      APP_KEY: base64:l1r06bgzYI1xqwlj57CCmxoo9tNLq0JmeFQf4PPDDkM=
+      APP_DEBUG: "true"
+      APP_URL: http://localhost:8001
+      DB_CONNECTION: pgsql
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_DATABASE: hr_service
+      DB_USERNAME: postgres
+      DB_PASSWORD: secret
+      QUEUE_CONNECTION: rabbitmq
+      RABBITMQ_HOST: rabbitmq
+      RABBITMQ_PORT: 5672
+      RABBITMQ_USER: guest
+      RABBITMQ_PASSWORD: guest
+      RABBITMQ_VHOST: /
+    ports:
+      - "8001:8001"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    networks:
+      - innoscripta
+
+  # ---------------------------------------------------------------------------
+  # Hub Service — API (checklists, steps, employees, schema)
+  # API: http://localhost:8000/api
+  # ---------------------------------------------------------------------------
+  hub-service:
+    build:
+      context: ./hubService
+      dockerfile: Dockerfile
+      args:
+        SERVICE_MODE: web
+    container_name: innoscripta_hub_service
+    restart: unless-stopped
+    environment:
+      APP_NAME: "Hub Service"
+      APP_ENV: local
+      APP_KEY: base64:l4SRFvEofwhEDi5OyL9mfDZymfKMT9cGjRpxgzMIYGw=
+      APP_DEBUG: "true"
+      APP_URL: http://localhost:8000
+      DB_CONNECTION: pgsql
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_DATABASE: hub_service
+      DB_USERNAME: postgres
+      DB_PASSWORD: secret
+      BROADCAST_DRIVER: pusher
+      CACHE_DRIVER: redis
+      QUEUE_CONNECTION: rabbitmq
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_PASSWORD: null
+      RABBITMQ_HOST: rabbitmq
+      RABBITMQ_PORT: 5672
+      RABBITMQ_USER: guest
+      RABBITMQ_PASSWORD: guest
+      RABBITMQ_VHOST: /
+      HR_SERVICE_URL: http://hr-service:8001
+      PUSHER_APP_ID: innoscripta
+      PUSHER_APP_KEY: innoscripta-key
+      PUSHER_APP_SECRET: innoscripta-secret
+      PUSHER_HOST: soketi
+      PUSHER_PORT: 6001
+      PUSHER_SCHEME: http
+      PUSHER_APP_CLUSTER: mt1
+      SERVICE_MODE: web
+    ports:
+      - "8000:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      soketi:
+        condition: service_started
+      hr-service:
+        condition: service_started
+    networks:
+      - innoscripta
+
+  # ---------------------------------------------------------------------------
+  # Hub Worker — RabbitMQ consumer (same image, worker mode)
+  # ---------------------------------------------------------------------------
+  hub-worker:
+    build:
+      context: ./hubService
+      dockerfile: Dockerfile
+      args:
+        SERVICE_MODE: worker
+    container_name: innoscripta_hub_worker
+    restart: unless-stopped
+    environment:
+      APP_NAME: "Hub Worker"
+      APP_ENV: local
+      APP_KEY: base64:l4SRFvEofwhEDi5OyL9mfDZymfKMT9cGjRpxgzMIYGw=
+      APP_DEBUG: "true"
+      DB_CONNECTION: pgsql
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_DATABASE: hub_service
+      DB_USERNAME: postgres
+      DB_PASSWORD: secret
+      BROADCAST_DRIVER: pusher
+      CACHE_DRIVER: redis
+      QUEUE_CONNECTION: rabbitmq
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_PASSWORD: null
+      RABBITMQ_HOST: rabbitmq
+      RABBITMQ_PORT: 5672
+      RABBITMQ_USER: guest
+      RABBITMQ_PASSWORD: guest
+      RABBITMQ_VHOST: /
+      HR_SERVICE_URL: http://hr-service:8001
+      PUSHER_APP_ID: innoscripta
+      PUSHER_APP_KEY: innoscripta-key
+      PUSHER_APP_SECRET: innoscripta-secret
+      PUSHER_HOST: soketi
+      PUSHER_PORT: 6001
+      PUSHER_SCHEME: http
+      PUSHER_APP_CLUSTER: mt1
+      SERVICE_MODE: worker
+    depends_on:
+      postgres:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      soketi:
+        condition: service_started
+    networks:
+      - innoscripta
+
+# =============================================================================
+# Volumes & Networks
+# =============================================================================
+volumes:
+  postgres_data:
+  rabbitmq_data:
+  redis_data:
+
+networks:
+  innoscripta:
+    driver: bridge

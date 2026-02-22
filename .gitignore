@@ -1,0 +1,22 @@
+# Ignore vendor dirs from both services (restored by composer install in Docker)
+hrService/vendor/
+hubService/vendor/
+
+# Laravel storage (generated at runtime)
+hrService/storage/framework/cache/
+hrService/storage/framework/sessions/
+hrService/storage/framework/views/
+hubService/storage/framework/cache/
+hubService/storage/framework/sessions/
+hubService/storage/framework/views/
+
+# Keep .env files committed (demo project — credentials are non-sensitive defaults)
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.idea/
+.vscode/
+*.swp
