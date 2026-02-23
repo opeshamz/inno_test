@@ -5,15 +5,22 @@ namespace App\Services;
 use App\Jobs\PublishEmployeeEvent;
 use App\Models\Employee;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 
 /**
  * Owns all Employee business logic:
- *   - Persistence (create / update / delete)
- *   - RabbitMQ event publishing after each mutation
+ *   - Persistence (create / update / delete) wrapped in DB transactions
+ *   - RabbitMQ event publishing after each successful mutation
+ *   - Logging for debugging and audit trail
  *
- * The controller becomes a thin HTTP adapter that delegates here.
+ * Transaction strategy:
+ *   DB write is wrapped in a transaction — if it fails the exception
+ *   propagates and nothing is published.  If the DB succeeds but the
+ *   RabbitMQ publish fails, we log and continue: data integrity takes
+ *   priority over event delivery, and the HubService cache has a 5-min
+ *   TTL fallback.
  */
 class EmployeeService
 {
@@ -38,7 +45,22 @@ class EmployeeService
 
     public function create(array $data): Employee
     {
-        $employee = Employee::create($data);
+        Log::info('[EmployeeService] Creating employee.', [
+            'country' => $data['country'] ?? null,
+            'name'    => $data['name'] ?? null,
+        ]);
+
+        try {
+            $employee = DB::transaction(fn () => Employee::create($data));
+        } catch (\Throwable $e) {
+            Log::error('[EmployeeService] Failed to create employee.', [
+                'error' => $e->getMessage(),
+                'data'  => $data,
+            ]);
+            throw $e;
+        }
+
+        Log::info('[EmployeeService] Employee created.', ['id' => $employee->id]);
 
         $this->publish('EmployeeCreated', $employee);
 
@@ -51,8 +73,25 @@ class EmployeeService
             array_diff_assoc($data, $employee->only(array_keys($data)))
         );
 
-        $employee->update($data);
-        $employee->refresh();
+        Log::info('[EmployeeService] Updating employee.', [
+            'id'             => $employee->id,
+            'changed_fields' => $changedFields,
+        ]);
+
+        try {
+            DB::transaction(function () use ($employee, $data) {
+                $employee->update($data);
+                $employee->refresh();
+            });
+        } catch (\Throwable $e) {
+            Log::error('[EmployeeService] Failed to update employee.', [
+                'id'    => $employee->id,
+                'error' => $e->getMessage(),
+            ]);
+            throw $e;
+        }
+
+        Log::info('[EmployeeService] Employee updated.', ['id' => $employee->id]);
 
         $this->publish('EmployeeUpdated', $employee, $changedFields);
 
@@ -61,10 +100,24 @@ class EmployeeService
 
     public function delete(Employee $employee): void
     {
-        // Capture snapshot before the record is gone
-        $snapshot = $employee->toCountryArray();
+        // Snapshot must be captured inside the transaction before the row is gone
+        Log::info('[EmployeeService] Deleting employee.', ['id' => $employee->id]);
 
-        $employee->delete();
+        try {
+            $snapshot = DB::transaction(function () use ($employee) {
+                $snapshot = $employee->toCountryArray();
+                $employee->delete();
+                return $snapshot;
+            });
+        } catch (\Throwable $e) {
+            Log::error('[EmployeeService] Failed to delete employee.', [
+                'id'    => $employee->id,
+                'error' => $e->getMessage(),
+            ]);
+            throw $e;
+        }
+
+        Log::info('[EmployeeService] Employee deleted.', ['id' => $snapshot['id'] ?? null]);
 
         $this->publishDeleted($snapshot);
     }
