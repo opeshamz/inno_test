@@ -26,6 +26,8 @@ class Employee extends Model
 
     /**
      * Return only the fields that are relevant for the employee's country.
+     * Extra fields are derived from CountryRuleProvider so no match arms
+     * need updating when a new country is added.
      */
     public function toCountryArray(): array
     {
@@ -37,10 +39,11 @@ class Employee extends Model
             'country'   => $this->country,
         ];
 
-        return match ($this->country) {
-            'USA'     => array_merge($base, ['ssn' => $this->ssn, 'address' => $this->address]),
-            'Germany' => array_merge($base, ['goal' => $this->goal, 'tax_id' => $this->tax_id]),
-            default   => $base,
-        };
+        /** @var \App\Services\CountryRuleProvider $provider */
+        $provider    = app(\App\Services\CountryRuleProvider::class);
+        $extraKeys   = array_keys($provider->rulesFor($this->country));
+        $extraValues = array_intersect_key($this->attributesToArray(), array_flip($extraKeys));
+
+        return array_merge($base, $extraValues);
     }
 }

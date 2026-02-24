@@ -52,16 +52,42 @@ return [
     */
 
     'channels' => [
+        /*
+         * Default stack:
+         *   - daily  → storage/logs/laravel-YYYY-MM-DD.log  (all levels, 14-day rotation)
+         *   - hr_errors → storage/logs/hr-errors.log        (error and above only)
+         *
+         * Result: you can `tail -f storage/logs/hr-errors.log` in production
+         * to watch only failures without info/debug noise.
+         */
         'stack' => [
-            'driver' => 'stack',
-            'channels' => ['single'],
+            'driver'            => 'stack',
+            'channels'          => ['daily', 'hr_errors'],
             'ignore_exceptions' => false,
         ],
 
+        // Single rotating file — all log levels
+        'daily' => [
+            'driver'               => 'daily',
+            'path'                 => storage_path('logs/laravel.log'),
+            'level'                => env('LOG_LEVEL', 'debug'),
+            'days'                 => 14,
+            'replace_placeholders' => true,
+        ],
+
+        // Errors-only file — easy to monitor / alert on in production
+        'hr_errors' => [
+            'driver'               => 'daily',
+            'path'                 => storage_path('logs/hr-errors.log'),
+            'level'                => 'error',   // only error, critical, alert, emergency
+            'days'                 => 30,         // keep errors longer than general logs
+            'replace_placeholders' => true,
+        ],
+
         'single' => [
-            'driver' => 'single',
-            'path' => storage_path('logs/laravel.log'),
-            'level' => env('LOG_LEVEL', 'debug'),
+            'driver'               => 'single',
+            'path'                 => storage_path('logs/laravel.log'),
+            'level'                => env('LOG_LEVEL', 'debug'),
             'replace_placeholders' => true,
         ],
 
@@ -89,7 +115,7 @@ return [
             'handler_with' => [
                 'host' => env('PAPERTRAIL_URL'),
                 'port' => env('PAPERTRAIL_PORT'),
-                'connectionString' => 'tls://'.env('PAPERTRAIL_URL').':'.env('PAPERTRAIL_PORT'),
+                'connectionString' => 'tls://' . env('PAPERTRAIL_URL') . ':' . env('PAPERTRAIL_PORT'),
             ],
             'processors' => [PsrLogMessageProcessor::class],
         ],

@@ -25,7 +25,7 @@ php artisan config:cache
 php artisan route:cache
 
 echo "==> Seeding demo data (if first run)..."
-php artisan db:seed --class=EmployeeSeeder --no-interaction 2>/dev/null || true
+php artisan db:seed --force --no-interaction
 
 echo "==> Starting HR Service on port 8001..."
 exec php artisan serve --host=0.0.0.0 --port=8001

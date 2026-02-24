@@ -3,26 +3,35 @@
 namespace App\Services;
 
 use App\Contracts\CountryValidatorInterface;
-use App\Validators\GermanyCountryValidator;
-use App\Validators\UsaCountryValidator;
 use Illuminate\Support\Facades\Log;
 
 /**
  * Determines per-employee and aggregate checklist completion status.
- * Country validators are resolved via a registry so new countries
- * can be added without touching this class.
+ * Country validators are injected via the service container (see AppServiceProvider)
+ * so new countries can be supported by registering a validator there — no
+ * changes needed in this class.
  */
 class ChecklistService
 {
     /** @var array<string, CountryValidatorInterface> */
     private array $validators;
 
-    public function __construct()
+    /**
+     * @param  array<string, CountryValidatorInterface>  $validators
+     */
+    public function __construct(array $validators = [])
     {
-        $this->validators = [
-            'USA'     => new UsaCountryValidator(),
-            'Germany' => new GermanyCountryValidator(),
-        ];
+        $this->validators = $validators;
+    }
+
+    /**
+     * Returns the list of countries this service can handle.
+     *
+     * @return string[]
+     */
+    public function supportedCountries(): array
+    {
+        return array_keys($this->validators);
     }
 
     /**

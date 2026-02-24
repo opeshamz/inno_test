@@ -67,7 +67,56 @@ class EmployeeCrudTest extends TestCase
             'name'      => 'Klaus',
             'last_name' => 'Weber',
             'country'   => 'Germany',
+            'goal'      => 'Some goal',
             'tax_id'    => 'INVALID',
+        ])->assertStatus(422)
+            ->assertJsonValidationErrors(['tax_id']);
+    }
+
+    public function test_usa_create_fails_without_ssn(): void
+    {
+        $this->postJson('/api/employees', [
+            'name'      => 'John',
+            'last_name' => 'Doe',
+            'salary'    => 50000,
+            'country'   => 'USA',
+            'address'   => '123 Main St',
+        ])->assertStatus(422)
+            ->assertJsonValidationErrors(['ssn']);
+    }
+
+    public function test_usa_create_fails_without_address(): void
+    {
+        $this->postJson('/api/employees', [
+            'name'      => 'John',
+            'last_name' => 'Doe',
+            'salary'    => 50000,
+            'country'   => 'USA',
+            'ssn'       => '123-45-6789',
+        ])->assertStatus(422)
+            ->assertJsonValidationErrors(['address']);
+    }
+
+    public function test_germany_create_fails_without_goal(): void
+    {
+        $this->postJson('/api/employees', [
+            'name'      => 'Hans',
+            'last_name' => 'Mueller',
+            'salary'    => 60000,
+            'country'   => 'Germany',
+            'tax_id'    => 'DE123456789',
+        ])->assertStatus(422)
+            ->assertJsonValidationErrors(['goal']);
+    }
+
+    public function test_germany_create_fails_without_tax_id(): void
+    {
+        $this->postJson('/api/employees', [
+            'name'      => 'Hans',
+            'last_name' => 'Mueller',
+            'salary'    => 60000,
+            'country'   => 'Germany',
+            'goal'      => 'Improve output',
         ])->assertStatus(422)
             ->assertJsonValidationErrors(['tax_id']);
     }

@@ -51,7 +51,7 @@ class EmployeeService
         ]);
 
         try {
-            $employee = DB::transaction(fn () => Employee::create($data));
+            $employee = DB::transaction(fn() => Employee::create($data));
         } catch (\Throwable $e) {
             Log::error('[EmployeeService] Failed to create employee.', [
                 'error' => $e->getMessage(),

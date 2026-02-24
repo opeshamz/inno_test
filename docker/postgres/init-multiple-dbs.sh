@@ -1,23 +1,31 @@
 #!/bin/bash
-# Creates multiple PostgreSQL databases on first container startup.
-# Referenced by docker-compose.yml: POSTGRES_MULTIPLE_DATABASES=hr_service,hub_service
-
+# PostgreSQL docker-entrypoint-initdb.d script.
+# Runs ONCE on first boot (empty data directory).
+# Creates hr_service and hub_service with the correct owner and password.
 set -e
 
-function create_db() {
-    local database=$1
-    echo "Creating database '$database'..."
-    psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" <<-EOSQL
-        SELECT 'CREATE DATABASE $database' WHERE NOT EXISTS (
-            SELECT FROM pg_database WHERE datname = '$database'
-        )\gexec
-EOSQL
-}
+echo ">>> [init] Creating application databases..."
 
-if [ -n "$POSTGRES_MULTIPLE_DATABASES" ]; then
-    echo "Multiple databases requested: $POSTGRES_MULTIPLE_DATABASES"
-    for db in $(echo $POSTGRES_MULTIPLE_DATABASES | tr ',' ' '); do
-        create_db $db
-    done
-    echo "Done creating databases."
-fi
+psql -v ON_ERROR_STOP=1 \
+     --username "$POSTGRES_USER" \
+     --dbname   "postgres" \
+     <<-'EOSQL'
+
+-- hr_service database
+SELECT 'CREATE DATABASE hr_service OWNER postgres'
+WHERE NOT EXISTS (
+    SELECT FROM pg_database WHERE datname = 'hr_service'
+)\gexec
+
+-- hub_service database
+SELECT 'CREATE DATABASE hub_service OWNER postgres'
+WHERE NOT EXISTS (
+    SELECT FROM pg_database WHERE datname = 'hub_service'
+)\gexec
+
+-- Confirm
+SELECT datname FROM pg_database WHERE datname IN ('hr_service', 'hub_service');
+
+EOSQL
+
+echo ">>> [init] Done — hr_service and hub_service are ready."

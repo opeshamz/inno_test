@@ -20,6 +20,9 @@ done
 echo "==> Running migrations..."
 php artisan migrate --force --no-interaction
 
+echo "==> Seeding reference data (idempotent)..."
+php artisan db:seed --force --no-interaction
+
 echo "==> Caching config..."
 php artisan config:cache
 

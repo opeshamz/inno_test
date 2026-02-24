@@ -69,7 +69,6 @@ class CacheService
     public function forgetByPattern(string $pattern): void
     {
         try {
-            /** @var \Illuminate\Redis\Connections\PhpRedisConnection|\Illuminate\Redis\Connections\PredisConnection $redis */
             $redis  = Cache::getStore()->getRedis();
             $cursor = 0;
 

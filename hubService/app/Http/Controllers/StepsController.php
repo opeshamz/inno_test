@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Step;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -9,63 +10,27 @@ use Illuminate\Http\Request;
  * GET /api/steps?country=USA
  *
  * Returns server-driven navigation steps for the given country.
- * USA:     Dashboard, Employees
- * Germany: Dashboard, Employees, Documentation
- *
- * Adding a country: add a new entry to $stepsConfig below.
+ * Steps are stored in the `steps` database table and can be
+ * managed without a code deployment.
  */
 class StepsController extends Controller
 {
-    private array $stepsConfig = [
-        'USA' => [
-            [
-                'id'    => 'dashboard',
-                'label' => 'Dashboard',
-                'icon'  => 'home',
-                'path'  => '/dashboard',
-                'order' => 1,
-            ],
-            [
-                'id'    => 'employees',
-                'label' => 'Employees',
-                'icon'  => 'users',
-                'path'  => '/employees',
-                'order' => 2,
-            ],
-        ],
-        'Germany' => [
-            [
-                'id'    => 'dashboard',
-                'label' => 'Dashboard',
-                'icon'  => 'home',
-                'path'  => '/dashboard',
-                'order' => 1,
-            ],
-            [
-                'id'    => 'employees',
-                'label' => 'Employees',
-                'icon'  => 'users',
-                'path'  => '/employees',
-                'order' => 2,
-            ],
-            [
-                'id'    => 'documentation',
-                'label' => 'Documentation',
-                'icon'  => 'file-text',
-                'path'  => '/documentation',
-                'order' => 3,
-            ],
-        ],
-    ];
-
     public function index(Request $request): JsonResponse
     {
         $request->validate([
-            'country' => ['required', 'string', 'in:USA,Germany'],
+            'country' => ['required', 'string'],
         ]);
 
         $country = $request->query('country');
-        $steps   = $this->stepsConfig[$country] ?? [];
+
+        $steps = Step::forCountry($country)
+            ->get(['step_id', 'label', 'icon', 'path', 'order']);
+
+        if ($steps->isEmpty()) {
+            return response()->json([
+                'message' => "No steps configured for country: {$country}",
+            ], 404);
+        }
 
         return response()->json([
             'country' => $country,

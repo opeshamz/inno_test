@@ -3,6 +3,8 @@
 namespace App\Http\Requests;
 
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Contracts\Validation\Validator;
+use Illuminate\Http\Exceptions\HttpResponseException;
 
 class UpdateEmployeeRequest extends FormRequest
 {
@@ -15,25 +17,34 @@ class UpdateEmployeeRequest extends FormRequest
     {
         /** @var \App\Models\Employee $employee */
         $employee = $this->route('employee');
-        $country  = $this->input('country', $employee->country);
+
+        // Use submitted country, fall back to the employee's existing country
+        $country = $this->input('country', $employee->country);
+
+        $provider  = app(\App\Services\CountryRuleProvider::class);
+        $supported = $provider->supportedCountries();
 
         $rules = [
             'name'      => ['sometimes', 'string', 'max:255'],
             'last_name' => ['sometimes', 'string', 'max:255'],
             'salary'    => ['sometimes', 'nullable', 'numeric', 'min:0'],
-            'country'   => ['sometimes', 'string', 'in:USA,Germany'],
+            'country'   => ['sometimes', 'string', 'in:' . implode(',', $supported)],
         ];
 
-        if ($country === 'USA') {
-            $rules['ssn']     = ['sometimes', 'nullable', 'string', 'max:50'];
-            $rules['address'] = ['sometimes', 'nullable', 'string'];
-        }
-
-        if ($country === 'Germany') {
-            $rules['goal']   = ['sometimes', 'nullable', 'string'];
-            $rules['tax_id'] = ['sometimes', 'nullable', 'string', 'regex:/^DE\d{9}$/'];
-        }
+        // Merge country-specific rules with 'sometimes' prefix (partial update safe)
+        $rules = array_merge($rules, $provider->rulesFor($country, 'sometimes'));
 
         return $rules;
+    }
+
+    protected function failedValidation(Validator $validator): void
+    {
+        throw new HttpResponseException(
+            response()->json([
+                'status'  => 'fail',
+                'message' => 'Validation failed',
+                'errors'  => $validator->errors(),
+            ], 422)
+        );
     }
 }

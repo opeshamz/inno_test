@@ -3,277 +3,669 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Hub Service — WebSocket Live Test</title>
+    <title>Innoscripta — Live Event Monitor</title>
     <style>
+      @import url("https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap");
+
+      :root {
+        --bg: #0a0a0f;
+        --surface: #111118;
+        --border: #1f1f2e;
+        --accent: #00e5ff;
+        --accent2: #ff6b35;
+        --green: #00ff88;
+        --red: #ff3366;
+        --yellow: #ffd166;
+        --muted: #44445a;
+        --text: #c8c8e0;
+        --mono: "IBM Plex Mono", monospace;
+        --sans: "IBM Plex Sans", sans-serif;
+      }
+
       * {
         box-sizing: border-box;
         margin: 0;
         padding: 0;
       }
+
       body {
-        font-family: "Segoe UI", system-ui, sans-serif;
-        background: #0f172a;
-        color: #e2e8f0;
-        padding: 24px;
-      }
-      h1 {
-        color: #7dd3fc;
-        margin-bottom: 8px;
-      }
-      .subtitle {
-        color: #94a3b8;
-        margin-bottom: 24px;
-        font-size: 14px;
-      }
-      .grid {
-        display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
-        gap: 20px;
-      }
-      .card {
-        background: #1e293b;
-        border-radius: 12px;
-        padding: 20px;
-        border: 1px solid #334155;
-      }
-      .card h2 {
-        font-size: 14px;
-        font-weight: 600;
-        color: #7dd3fc;
-        text-transform: uppercase;
-        letter-spacing: 0.05em;
-        margin-bottom: 12px;
-      }
-      .status {
-        display: flex;
-        align-items: center;
-        gap: 8px;
-        font-size: 13px;
-        margin-bottom: 16px;
-      }
-      .dot {
-        width: 10px;
-        height: 10px;
-        border-radius: 50%;
-        background: #ef4444;
-        flex-shrink: 0;
-      }
-      .dot.connected {
-        background: #22c55e;
-      }
-      .dot.connecting {
-        background: #f59e0b;
-        animation: pulse 1s infinite;
-      }
-      @keyframes pulse {
-        0%,
-        100% {
-          opacity: 1;
-        }
-        50% {
-          opacity: 0.4;
-        }
-      }
-      #log {
-        background: #0f172a;
-        border-radius: 8px;
-        padding: 12px;
-        height: 400px;
-        overflow-y: auto;
-        font-family: "Fira Code", monospace;
-        font-size: 12px;
-        border: 1px solid #1e293b;
-      }
-      .log-entry {
-        border-bottom: 1px solid #1e293b;
-        padding: 6px 0;
-      }
-      .log-entry:last-child {
-        border-bottom: none;
-      }
-      .log-ts {
-        color: #64748b;
-        margin-right: 8px;
-      }
-      .log-evt {
-        color: #a78bfa;
-      }
-      .log-ch {
-        color: #34d399;
-      }
-      .log-data {
-        color: #fbbf24;
-        white-space: pre-wrap;
-      }
-      .controls {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 8px;
-        margin-bottom: 16px;
-      }
-      button {
-        padding: 8px 16px;
-        border: none;
-        border-radius: 8px;
-        cursor: pointer;
-        font-size: 13px;
-        font-weight: 600;
-        transition: opacity 0.15s;
-      }
-      button:hover {
-        opacity: 0.85;
-      }
-      .btn-primary {
-        background: #3b82f6;
-        color: #fff;
-      }
-      .btn-success {
-        background: #22c55e;
-        color: #fff;
-      }
-      .btn-warning {
-        background: #f59e0b;
-        color: #000;
-      }
-      .btn-danger {
-        background: #ef4444;
-        color: #fff;
-      }
-      .form-row {
+        background: var(--bg);
+        color: var(--text);
+        font-family: var(--sans);
+        min-height: 100vh;
         display: flex;
         flex-direction: column;
-        gap: 6px;
-        margin-bottom: 12px;
       }
-      label {
-        font-size: 12px;
-        color: #94a3b8;
+
+      /* ── Top bar ── */
+      .topbar {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 14px 28px;
+        border-bottom: 1px solid var(--border);
+        background: var(--surface);
       }
-      select,
-      input {
-        background: #0f172a;
-        color: #e2e8f0;
-        border: 1px solid #334155;
-        border-radius: 6px;
-        padding: 7px 10px;
+      .topbar-left {
+        display: flex;
+        align-items: center;
+        gap: 14px;
+      }
+      .logo {
+        font-family: var(--mono);
         font-size: 13px;
-        width: 100%;
+        color: var(--accent);
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
       }
-      .badge {
-        display: inline-block;
-        padding: 2px 8px;
-        border-radius: 999px;
+      .logo span {
+        color: var(--accent2);
+      }
+      .separator {
+        color: var(--muted);
+      }
+      .page-title {
+        font-size: 13px;
+        color: var(--muted);
+        font-family: var(--mono);
+      }
+      .conn-pill {
+        display: flex;
+        align-items: center;
+        gap: 7px;
+        font-family: var(--mono);
+        font-size: 11px;
+        color: var(--muted);
+        background: var(--bg);
+        border: 1px solid var(--border);
+        padding: 5px 12px;
+        border-radius: 3px;
+      }
+      .conn-pill .led {
+        width: 7px;
+        height: 7px;
+        border-radius: 50%;
+        background: var(--red);
+        box-shadow: 0 0 6px var(--red);
+      }
+      .conn-pill .led.on {
+        background: var(--green);
+        box-shadow: 0 0 8px var(--green);
+      }
+      .conn-pill .led.mid {
+        background: var(--yellow);
+        box-shadow: 0 0 8px var(--yellow);
+        animation: blink 0.7s infinite;
+      }
+      @keyframes blink {
+        50% {
+          opacity: 0.3;
+        }
+      }
+
+      /* ── Main layout ── */
+      .workspace {
+        display: grid;
+        grid-template-columns: 280px 1fr 300px;
+        grid-template-rows: 1fr;
+        flex: 1;
+        overflow: hidden;
+        height: calc(100vh - 53px);
+      }
+
+      /* ── Left panel ── */
+      .left-panel {
+        border-right: 1px solid var(--border);
+        display: flex;
+        flex-direction: column;
+        overflow-y: auto;
+      }
+      .panel-section {
+        padding: 18px 20px;
+        border-bottom: 1px solid var(--border);
+      }
+      .section-label {
+        font-family: var(--mono);
+        font-size: 10px;
+        letter-spacing: 0.15em;
+        text-transform: uppercase;
+        color: var(--muted);
+        margin-bottom: 14px;
+      }
+      .field {
+        margin-bottom: 10px;
+      }
+      .field label {
+        display: block;
+        font-size: 11px;
+        font-family: var(--mono);
+        color: var(--muted);
+        margin-bottom: 4px;
+      }
+      .field input,
+      .field select {
+        width: 100%;
+        background: var(--bg);
+        border: 1px solid var(--border);
+        color: var(--text);
+        font-family: var(--mono);
+        font-size: 12px;
+        padding: 7px 10px;
+        outline: none;
+        border-radius: 2px;
+        transition: border-color 0.15s;
+      }
+      .field input:focus,
+      .field select:focus {
+        border-color: var(--accent);
+      }
+      .field select option {
+        background: var(--surface);
+      }
+
+      .btn-row {
+        display: flex;
+        gap: 8px;
+        margin-top: 4px;
+      }
+      .btn {
+        flex: 1;
+        padding: 8px 0;
+        border: none;
+        border-radius: 2px;
+        font-family: var(--mono);
         font-size: 11px;
         font-weight: 600;
-        background: #1e40af;
-        color: #bfdbfe;
+        letter-spacing: 0.06em;
+        cursor: pointer;
+        text-transform: uppercase;
+        transition: filter 0.15s;
       }
-      #event-count {
-        font-size: 28px;
-        font-weight: 700;
-        color: #7dd3fc;
+      .btn:hover {
+        filter: brightness(1.15);
       }
-      #checklist-data {
-        font-size: 12px;
+      .btn-connect {
+        background: var(--accent);
+        color: var(--bg);
       }
-      .progress {
-        background: #1e293b;
-        border-radius: 999px;
-        height: 8px;
+      .btn-disconnect {
+        background: var(--red);
+        color: #fff;
+      }
+      .btn-subscribe {
+        background: var(--accent2);
+        color: #fff;
+      }
+      .btn-clear {
+        background: var(--border);
+        color: var(--text);
+      }
+
+      .chip-list {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+        margin-top: 10px;
+        min-height: 22px;
+      }
+      .chip {
+        font-family: var(--mono);
+        font-size: 10px;
+        padding: 3px 9px;
+        border-radius: 2px;
+        background: #00e5ff18;
+        color: var(--accent);
+        border: 1px solid #00e5ff30;
+        letter-spacing: 0.04em;
+      }
+
+      /* ── Center: event log ── */
+      .center-panel {
+        display: flex;
+        flex-direction: column;
         overflow: hidden;
-        margin-top: 6px;
       }
-      .progress-bar {
-        height: 100%;
-        background: #22c55e;
-        transition: width 0.4s;
+      .log-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 12px 20px;
+        border-bottom: 1px solid var(--border);
+        background: var(--surface);
+        flex-shrink: 0;
+      }
+      .log-header-left {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
+      .log-title {
+        font-family: var(--mono);
+        font-size: 11px;
+        letter-spacing: 0.1em;
+        text-transform: uppercase;
+        color: var(--muted);
+      }
+      .evt-counter {
+        font-family: var(--mono);
+        font-size: 11px;
+        color: var(--accent2);
+        background: #ff6b3518;
+        border: 1px solid #ff6b3530;
+        padding: 2px 8px;
+        border-radius: 2px;
+      }
+
+      #log {
+        flex: 1;
+        overflow-y: auto;
+        padding: 0;
+        font-family: var(--mono);
+        font-size: 11.5px;
+        scrollbar-width: thin;
+        scrollbar-color: var(--border) transparent;
+      }
+      #log::-webkit-scrollbar {
+        width: 4px;
+      }
+      #log::-webkit-scrollbar-thumb {
+        background: var(--border);
+      }
+
+      .log-row {
+        display: grid;
+        grid-template-columns: 80px 160px 1fr;
+        gap: 0;
+        border-bottom: 1px solid var(--border);
+        min-height: 32px;
+      }
+      .log-row:hover {
+        background: #ffffff04;
+      }
+      .log-row.system {
+        opacity: 0.5;
+      }
+      .log-row.new {
+        animation: flash 0.4s ease-out;
+      }
+      @keyframes flash {
+        from {
+          background: #00e5ff10;
+        }
+        to {
+          background: transparent;
+        }
+      }
+
+      .log-cell {
+        padding: 8px 12px;
+        display: flex;
+        align-items: flex-start;
+        border-right: 1px solid var(--border);
+      }
+      .log-cell:last-child {
+        border-right: none;
+        align-items: flex-start;
+      }
+      .log-time {
+        color: var(--muted);
+        font-size: 10px;
+        padding-top: 9px;
+      }
+      .log-chan {
+        color: var(--green);
+        font-size: 10px;
+        word-break: break-all;
+        padding-top: 9px;
+      }
+      .log-chan.system-ch {
+        color: var(--muted);
+      }
+      .log-body {
+        flex-direction: column;
+        gap: 2px;
+      }
+      .log-event-name {
+        color: var(--accent);
+        font-size: 10px;
+        letter-spacing: 0.05em;
+      }
+      .log-payload {
+        color: var(--yellow);
+        font-size: 10px;
+        white-space: pre-wrap;
+        word-break: break-all;
+        max-height: 120px;
+        overflow: hidden;
+        cursor: pointer;
+      }
+      .log-payload.expanded {
+        max-height: none;
+      }
+      .log-empty {
+        padding: 40px 20px;
+        color: var(--muted);
+        font-size: 12px;
+        text-align: center;
+      }
+
+      /* ── Right panel: stats ── */
+      .right-panel {
+        border-left: 1px solid var(--border);
+        display: flex;
+        flex-direction: column;
+        overflow-y: auto;
+      }
+
+      .stat-block {
+        padding: 20px;
+        border-bottom: 1px solid var(--border);
+      }
+      .stat-label {
+        font-family: var(--mono);
+        font-size: 10px;
+        color: var(--muted);
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+        margin-bottom: 10px;
+      }
+      .stat-value {
+        font-family: var(--mono);
+        font-size: 36px;
+        font-weight: 600;
+        color: var(--accent);
+        line-height: 1;
+      }
+      .stat-sub {
+        font-size: 11px;
+        color: var(--muted);
+        margin-top: 4px;
+      }
+
+      /* arc progress */
+      .arc-wrap {
+        display: flex;
+        justify-content: center;
+        margin: 8px 0 12px;
+      }
+      .arc-svg {
+        transform: rotate(-90deg);
+      }
+      .arc-bg {
+        fill: none;
+        stroke: var(--border);
+        stroke-width: 6;
+      }
+      .arc-fill {
+        fill: none;
+        stroke: var(--green);
+        stroke-width: 6;
+        stroke-linecap: round;
+        transition: stroke-dashoffset 0.6s;
+      }
+      .arc-label {
+        font-family: var(--mono);
+        font-size: 22px;
+        font-weight: 600;
+        fill: var(--accent);
+        dominant-baseline: central;
+        text-anchor: middle;
+      }
+      .arc-sublabel {
+        font-family: var(--mono);
+        font-size: 10px;
+        fill: var(--muted);
+        dominant-baseline: central;
+        text-anchor: middle;
+      }
+
+      .kv-table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 11px;
+        font-family: var(--mono);
+      }
+      .kv-table tr {
+        border-bottom: 1px solid var(--border);
+      }
+      .kv-table tr:last-child {
+        border-bottom: none;
+      }
+      .kv-table td {
+        padding: 6px 0;
+      }
+      .kv-table td:first-child {
+        color: var(--muted);
+        padding-right: 12px;
+        min-width: 100px;
+      }
+      .kv-table td:last-child {
+        color: var(--text);
+      }
+
+      .flash-row {
+        animation: rowflash 0.6s ease-out;
+      }
+      @keyframes rowflash {
+        from {
+          color: var(--green);
+        }
+        to {
+        }
       }
     </style>
   </head>
   <body>
-    <h1>Hub Service — Real-Time WebSocket Test</h1>
-    <p class="subtitle">
-      Connect to Soketi and watch employee + checklist events update in real
-      time.
-    </p>
-
-    <div class="grid">
-      <!-- Connection Panel -->
-      <div class="card">
-        <h2>Connection</h2>
-        <div class="status">
-          <span class="dot" id="dot"></span>
-          <span id="status-text">Disconnected</span>
-        </div>
-
-        <div class="form-row">
-          <label>Soketi Host (ws)</label>
-          <input id="wsHost" value="localhost" />
-        </div>
-        <div class="form-row">
-          <label>Soketi Port</label>
-          <input id="wsPort" value="6001" />
-        </div>
-        <div class="form-row">
-          <label>App Key</label>
-          <input id="appKey" value="innoscripta-key" />
-        </div>
-
-        <div class="controls">
-          <button class="btn-success" onclick="connect()">Connect</button>
-          <button class="btn-danger" onclick="disconnect()">Disconnect</button>
-        </div>
-
-        <h2 style="margin-top: 12px">Subscriptions</h2>
-        <div class="form-row">
-          <label>Country</label>
-          <select id="country">
-            <option value="USA">USA</option>
-            <option value="Germany">Germany</option>
-          </select>
-        </div>
-
-        <div class="controls">
-          <button class="btn-primary" onclick="subscribe()">Subscribe</button>
-          <button class="btn-warning" onclick="clearLog()">Clear Log</button>
-        </div>
-
-        <div
-          id="subscriptions"
-          style="margin-top: 8px; display: flex; flex-wrap: wrap; gap: 6px"
-        ></div>
+    <!-- Top bar -->
+    <div class="topbar">
+      <div class="topbar-left">
+        <div class="logo">Innoscripta <span>//</span> Event Monitor</div>
+        <div class="separator">|</div>
+        <div class="page-title">websocket · soketi · realtime</div>
       </div>
+      <div class="conn-pill">
+        <div class="led" id="led"></div>
+        <span id="status-text">disconnected</span>
+      </div>
+    </div>
 
-      <!-- Live Event Log -->
-      <div class="card">
-        <h2>
-          Event Log
-          <span id="event-count-badge" class="badge" style="margin-left: 6px"
-            >0 events</span
+    <!-- Workspace -->
+    <div class="workspace">
+      <!-- Left: controls -->
+      <div class="left-panel">
+        <div class="panel-section">
+          <div class="section-label">Connection</div>
+          <div class="field">
+            <label>Host</label>
+            <input id="wsHost" value="localhost" />
+          </div>
+          <div class="field">
+            <label>Port</label>
+            <input id="wsPort" value="6001" />
+          </div>
+          <div class="field">
+            <label>App Key</label>
+            <input id="appKey" value="innoscripta-key" />
+          </div>
+          <div class="btn-row">
+            <button class="btn btn-connect" onclick="connect()">Connect</button>
+            <button class="btn btn-disconnect" onclick="disconnect()">
+              Drop
+            </button>
+          </div>
+        </div>
+
+        <div class="panel-section">
+          <div class="section-label">Subscribe</div>
+          <div class="field">
+            <label>Country</label>
+            <select id="country">
+              <option value="USA">USA</option>
+              <option value="Germany">Germany</option>
+            </select>
+          </div>
+          <div class="btn-row">
+            <button class="btn btn-subscribe" onclick="subscribe()">
+              Watch
+            </button>
+            <button class="btn btn-clear" onclick="clearLog()">Clear</button>
+          </div>
+          <div class="chip-list" id="subscriptions"></div>
+        </div>
+
+        <div class="panel-section">
+          <div class="section-label">Channels</div>
+          <div
+            style="
+              font-family: var(--mono);
+              font-size: 10px;
+              color: var(--muted);
+              line-height: 1.8;
+            "
           >
-        </h2>
-        <div id="log">
-          <span style="color: #64748b">Waiting for events...</span>
+            <div>
+              employees.<span style="color: var(--accent)">{country}</span>
+            </div>
+            <div>
+              checklists.<span style="color: var(--accent)">{country}</span>
+            </div>
+            <div>
+              employees.<span style="color: var(--accent)">{country}.{id}</span>
+            </div>
+          </div>
         </div>
       </div>
 
-      <!-- Checklist Stats -->
-      <div class="card">
-        <h2>Latest Checklist Update</h2>
-        <div id="event-count" style="margin-bottom: 4px">—</div>
-        <div style="color: #94a3b8; font-size: 13px; margin-bottom: 12px">
-          Overall completion
+      <!-- Center: event log -->
+      <div class="center-panel">
+        <div class="log-header">
+          <div class="log-header-left">
+            <div class="log-title">Event Stream</div>
+            <div class="evt-counter" id="evt-counter">0 events</div>
+          </div>
+          <div
+            style="
+              font-family: var(--mono);
+              font-size: 10px;
+              color: var(--muted);
+            "
+          >
+            click payload to expand
+          </div>
         </div>
-        <div class="progress">
-          <div class="progress-bar" id="progress-bar" style="width: 0%"></div>
+        <div id="log">
+          <div class="log-empty">
+            No events yet — connect and subscribe to a channel.
+          </div>
         </div>
-        <div id="checklist-data" style="margin-top: 16px; color: #94a3b8">
-          No updates yet.
+      </div>
+
+      <!-- Right: stats -->
+      <div class="right-panel">
+        <div class="stat-block">
+          <div class="stat-label">Completion</div>
+          <div class="arc-wrap">
+            <svg width="130" height="130" viewBox="0 0 130 130">
+              <circle class="arc-bg" cx="65" cy="65" r="54" />
+              <circle
+                class="arc-fill"
+                cx="65"
+                cy="65"
+                r="54"
+                id="arc"
+                stroke-dasharray="339.3"
+                stroke-dashoffset="339.3"
+              />
+              <text
+                class="arc-label"
+                x="65"
+                y="62"
+                transform="rotate(90,65,65)"
+                id="arc-pct"
+              >
+                —
+              </text>
+              <text
+                class="arc-sublabel"
+                x="65"
+                y="76"
+                transform="rotate(90,65,65)"
+              >
+                completion
+              </text>
+            </svg>
+          </div>
+        </div>
+
+        <div class="stat-block">
+          <div class="stat-label">Last Event</div>
+          <div
+            id="stat-event-type"
+            style="
+              font-family: var(--mono);
+              font-size: 13px;
+              color: var(--accent2);
+              margin-bottom: 4px;
+            "
+          >
+            —
+          </div>
+          <div
+            id="stat-event-time"
+            style="
+              font-family: var(--mono);
+              font-size: 10px;
+              color: var(--muted);
+            "
+          >
+            —
+          </div>
+        </div>
+
+        <div class="stat-block">
+          <div class="stat-label">Checklist Summary</div>
+          <table class="kv-table" id="summary-table">
+            <tr>
+              <td>country</td>
+              <td id="s-country">—</td>
+            </tr>
+            <tr>
+              <td>employees</td>
+              <td id="s-employees">—</td>
+            </tr>
+            <tr>
+              <td>total fields</td>
+              <td id="s-total">—</td>
+            </tr>
+            <tr>
+              <td>complete</td>
+              <td id="s-complete">—</td>
+            </tr>
+            <tr>
+              <td>incomplete</td>
+              <td id="s-incomplete">—</td>
+            </tr>
+          </table>
+        </div>
+
+        <div class="stat-block">
+          <div class="stat-label">Session</div>
+          <table class="kv-table">
+            <tr>
+              <td>events recv</td>
+              <td id="s-count">0</td>
+            </tr>
+            <tr>
+              <td>socket id</td>
+              <td id="s-socket" style="word-break: break-all; font-size: 9px">
+                —
+              </td>
+            </tr>
+          </table>
         </div>
       </div>
     </div>
 
-    <!-- Pusher JS via CDN -->
     <script src="https://js.pusher.com/8.0.1/pusher.min.js"></script>
     <script>
       let pusher = null;
@@ -281,54 +673,100 @@
       const subscribedChannels = {};
 
       function ts() {
-        return new Date().toISOString().split("T")[1].replace("Z", "");
-      }
-
-      function log(channel, event, data) {
-        const logEl = document.getElementById("log");
-        const wasAtBottom =
-          logEl.scrollTop + logEl.clientHeight >= logEl.scrollHeight - 10;
-
-        const entry = document.createElement("div");
-        entry.className = "log-entry";
-        entry.innerHTML = `
-      <span class="log-ts">${ts()}</span>
-      <span class="log-ch">[${channel}]</span>
-      <span class="log-evt"> ${event}</span><br>
-      <span class="log-data">${JSON.stringify(data, null, 2)}</span>
-    `;
-
-        // Remove placeholder
-        if (
-          logEl.children.length === 1 &&
-          logEl.children[0].tagName === "SPAN"
-        ) {
-          logEl.innerHTML = "";
-        }
-        logEl.appendChild(entry);
-
-        if (wasAtBottom) logEl.scrollTop = logEl.scrollHeight;
-
-        eventCount++;
-        document.getElementById("event-count-badge").textContent =
-          `${eventCount} event${eventCount !== 1 ? "s" : ""}`;
+        const d = new Date();
+        return (
+          d.toTimeString().split(" ")[0] +
+          "." +
+          String(d.getMilliseconds()).padStart(3, "0")
+        );
       }
 
       function setStatus(state, text) {
-        const dot = document.getElementById("dot");
-        const statusText = document.getElementById("status-text");
-        dot.className = "dot " + state;
-        statusText.textContent = text;
+        const led = document.getElementById("led");
+        led.className =
+          "led" +
+          (state === "connected"
+            ? " on"
+            : state === "connecting"
+              ? " mid"
+              : "");
+        document.getElementById("status-text").textContent = text;
+      }
+
+      function appendLog(channel, event, data, isSystem) {
+        const logEl = document.getElementById("log");
+        const empty = logEl.querySelector(".log-empty");
+        if (empty) empty.remove();
+
+        const atBottom =
+          logEl.scrollTop + logEl.clientHeight >= logEl.scrollHeight - 10;
+
+        const row = document.createElement("div");
+        row.className = "log-row new" + (isSystem ? " system" : "");
+
+        const payload = JSON.stringify(data, null, 2);
+
+        row.innerHTML = `
+      <div class="log-cell log-time">${ts()}</div>
+      <div class="log-cell log-chan ${isSystem ? "system-ch" : ""}">${channel}</div>
+      <div class="log-cell log-body">
+        <div class="log-event-name">${event}</div>
+        <div class="log-payload" onclick="this.classList.toggle('expanded')">${payload}</div>
+      </div>`;
+
+        logEl.appendChild(row);
+        if (atBottom) logEl.scrollTop = logEl.scrollHeight;
+
+        eventCount++;
+        document.getElementById("evt-counter").textContent =
+          eventCount + " event" + (eventCount !== 1 ? "s" : "");
+        document.getElementById("s-count").textContent = eventCount;
+      }
+
+      function updateStats(data) {
+        const summary = data.checklist_summary;
+        const pct = summary ? summary.overall_completion || 0 : null;
+
+        document.getElementById("stat-event-type").textContent =
+          data.event_type || "—";
+        document.getElementById("stat-event-time").textContent =
+          data.timestamp || ts();
+
+        if (summary) {
+          const circ = 2 * Math.PI * 54;
+          const offset = circ - (pct / 100) * circ;
+          document.getElementById("arc").style.strokeDashoffset = offset;
+          document.getElementById("arc").style.stroke =
+            pct >= 80
+              ? "var(--green)"
+              : pct >= 50
+                ? "var(--yellow)"
+                : "var(--red)";
+          document.getElementById("arc-pct").textContent = pct + "%";
+
+          const flash = (id, val) => {
+            const el = document.getElementById(id);
+            el.textContent = val;
+            el.classList.remove("flash-row");
+            void el.offsetWidth;
+            el.classList.add("flash-row");
+          };
+
+          flash("s-country", data.country);
+          flash("s-employees", summary.total_employees);
+          flash("s-total", summary.total_fields);
+          flash("s-complete", summary.completed_fields);
+          flash("s-incomplete", summary.incomplete_fields);
+        }
       }
 
       function connect() {
         if (pusher) pusher.disconnect();
-
         const host = document.getElementById("wsHost").value;
         const port = parseInt(document.getElementById("wsPort").value);
         const appKey = document.getElementById("appKey").value;
 
-        setStatus("connecting", "Connecting...");
+        setStatus("connecting", "connecting...");
 
         pusher = new Pusher(appKey, {
           wsHost: host,
@@ -340,86 +778,50 @@
         });
 
         pusher.connection.bind("connected", () => {
-          setStatus(
-            "connected",
-            `Connected — Socket ID: ${pusher.connection.socket_id}`,
-          );
-          log("system", "connected", {
-            socket_id: pusher.connection.socket_id,
-          });
+          const sid = pusher.connection.socket_id;
+          setStatus("connected", "connected · " + sid.slice(0, 14));
+          document.getElementById("s-socket").textContent = sid;
+          appendLog("system", "connected", { socket_id: sid }, true);
         });
-
         pusher.connection.bind("disconnected", () => {
-          setStatus("", "Disconnected");
-          log("system", "disconnected", {});
+          setStatus("", "disconnected");
+          appendLog("system", "disconnected", {}, true);
         });
-
         pusher.connection.bind("error", (err) => {
-          setStatus("", "Error");
-          log("system", "error", err);
+          setStatus("", "error");
+          appendLog("system", "error", err, true);
         });
       }
 
       function subscribe() {
         if (!pusher || pusher.connection.state !== "connected") {
-          alert("Connect first!");
+          alert("Connect first.");
           return;
         }
-
         const country = document.getElementById("country").value;
         const channels = [`employees.${country}`, `checklists.${country}`];
 
-        channels.forEach((channelName) => {
-          if (subscribedChannels[channelName]) return;
-
-          const ch = pusher.subscribe(channelName);
+        channels.forEach((name) => {
+          if (subscribedChannels[name]) return;
+          const ch = pusher.subscribe(name);
 
           ch.bind("EmployeeDataUpdated", (data) => {
-            log(channelName, "EmployeeDataUpdated", data);
-            updateChecklist(data);
+            appendLog(name, "EmployeeDataUpdated", data, false);
+            updateStats(data);
+          });
+          ch.bind_global((evt, data) => {
+            if (evt !== "EmployeeDataUpdated" && !evt.startsWith("pusher:"))
+              appendLog(name, evt, data, false);
           });
 
-          // Catch-all for other events
-          ch.bind_global((eventName, data) => {
-            if (
-              eventName !== "EmployeeDataUpdated" &&
-              !eventName.startsWith("pusher:")
-            ) {
-              log(channelName, eventName, data);
-            }
-          });
-
-          subscribedChannels[channelName] = ch;
-
-          const badge = document.createElement("span");
-          badge.className = "badge";
-          badge.textContent = channelName;
-          document.getElementById("subscriptions").appendChild(badge);
+          subscribedChannels[name] = ch;
+          const chip = document.createElement("span");
+          chip.className = "chip";
+          chip.textContent = name;
+          document.getElementById("subscriptions").appendChild(chip);
         });
 
-        log("system", "subscribed", { channels });
-      }
-
-      function updateChecklist(data) {
-        const summary = data.checklist_summary;
-        if (!summary) return;
-
-        const pct = summary.overall_completion || 0;
-
-        document.getElementById("event-count").textContent = `${pct}%`;
-        document.getElementById("progress-bar").style.width = `${pct}%`;
-
-        const html = `
-      <table style="width:100%; border-collapse:collapse">
-        <tr><td style="padding:3px 0; color:#94a3b8">Event Type</td><td>${data.event_type}</td></tr>
-        <tr><td style="padding:3px 0; color:#94a3b8">Employee ID</td><td>${data.employee_id || "—"}</td></tr>
-        <tr><td style="padding:3px 0; color:#94a3b8">Country</td><td>${data.country}</td></tr>
-        <tr><td style="padding:3px 0; color:#94a3b8">Total Employees</td><td>${summary.total_employees}</td></tr>
-        <tr><td style="padding:3px 0; color:#94a3b8">Completed fields</td><td>${summary.completed_fields} / ${summary.total_fields}</td></tr>
-        <tr><td style="padding:3px 0; color:#94a3b8">Completion</td><td>${pct}%</td></tr>
-      </table>
-    `;
-        document.getElementById("checklist-data").innerHTML = html;
+        appendLog("system", "subscribed", { channels }, true);
       }
 
       function disconnect() {
@@ -431,13 +833,15 @@
           (k) => delete subscribedChannels[k],
         );
         document.getElementById("subscriptions").innerHTML = "";
+        setStatus("", "disconnected");
       }
 
       function clearLog() {
         document.getElementById("log").innerHTML =
-          '<span style="color:#64748b">Log cleared.</span>';
+          '<div class="log-empty">Log cleared.</div>';
         eventCount = 0;
-        document.getElementById("event-count-badge").textContent = "0 events";
+        document.getElementById("evt-counter").textContent = "0 events";
+        document.getElementById("s-count").textContent = "0";
       }
     </script>
   </body>

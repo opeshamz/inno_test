@@ -62,9 +62,7 @@ class EmployeeController extends Controller
         return new EmployeeResource($employee);
     }
 
-    // -----------------------------------------------------------------------
     // DELETE /api/employees/{employee}
-    // -----------------------------------------------------------------------
     public function destroy(Employee $employee): JsonResponse
     {
         $this->service->delete($employee);
