@@ -1,479 +1,286 @@
-# Event-Driven Multi-Country HR Platform
+# Innoscripta — Multi-Country HR Platform
 
-A real-time, event-driven backend platform built with Laravel 10, RabbitMQ, Redis,
-WebSockets (Soketi), and PostgreSQL. The system consists of two independent microservices
-that communicate asynchronously via a message queue, with the HubService acting as the
-central orchestration layer.
+Two Laravel services. Employee data lives in HR Service. The Hub Service watches for changes, rebuilds validation reports, and pushes updates to connected clients over WebSockets.
 
 ---
 
-## Table of Contents
+## Section 1: Overview
 
-1. [Overview](#overview)
-2. [Technology Stack](#technology-stack)
-3. [Architecture](#architecture)
-4. [Data Flow](#data-flow)
-5. [Design Decisions & Trade-offs](#design-decisions--trade-offs)
-6. [Quick Start](#quick-start)
-7. [API Reference](#api-reference)
-8. [WebSocket Channels](#websocket-channels)
-9. [Testing](#testing)
-10. [Environment Variables](#environment-variables)
+### What it does
 
----
+HR admins manage employees across different countries. Each country has different required fields — USA needs SSN and address, Germany needs a tax ID and a goal. When an employee record changes, any open dashboard sees the update immediately without a page refresh.
 
-## Overview
+There are two separate services:
 
-The platform solves two key challenges:
+- **HR Service** (port 8001) — handles employee CRUD, publishes an event to RabbitMQ after each write
+- **Hub Service** (port 8000) — consumes those events, recomputes checklists, broadcasts to WebSocket clients, and serves read APIs for the frontend
 
-1. **Real-time synchronisation** — when employee data changes in the HR Service,
-   all connected clients see updated checklists and employee lists immediately via WebSockets.
+### Technology stack
 
-2. **Country-specific logic** — USA and Germany employees have different required data fields,
-   UI columns, and dashboard widgets, all driven by the backend (server-driven UI pattern).
+**Framework — Laravel 10**
+Queues, cache, broadcasting, and HTTP client are all built in. No extra packages needed for the core event flow.
 
-### Services
+**Database — PostgreSQL**
+Better JSON handling and stricter types than MySQL. One instance runs both `hr_service` and `hub_service` as separate databases.
 
-| Service         | Role                                             | Port |
-| --------------- | ------------------------------------------------ | ---- |
-| **HR Service**  | Employee CRUD + RabbitMQ publisher               | 8001 |
-| **Hub Service** | Event consumer, Checklist, Server-Driven UI APIs | 8000 |
-| **Hub Worker**  | RabbitMQ queue worker (same image, worker mode)  | —    |
-| **PostgreSQL**  | Relational database (two DBs, one instance)      | 5432 |
-| **RabbitMQ**    | Message broker — Management UI on port 15672     | 5672 |
-| **Redis**       | Cache layer for HubService                       | 6379 |
-| **Soketi**      | Self-hosted Pusher-compatible WebSocket server   | 6001 |
+**Message broker — RabbitMQ**
+Durable queues, dead-letter exchanges, and a management UI at `:15672` for inspecting messages. Using Redis as the queue backend was an option, but RabbitMQ keeps the two services properly decoupled — HR Service just fires an event and doesn't need to know Hub Service exists.
 
----
+**Cache — Redis**
+Rebuilding a checklist report means an HTTP call to HR Service plus running every validator. Redis caches the result and supports key-pattern deletion (`employees:USA:*`), so the worker can wipe stale pages after an event without tracking each key individually.
 
-## Technology Stack
+**WebSockets — Soketi**
+Self-hosted Pusher-compatible server — Laravel's broadcasting works with it out of the box. Avoids a hosted Pusher account and its rate limits; runs in Docker with nothing needed beyond `.env` values.
 
-| Layer          | Choice                                      | Justification                                                              |
-| -------------- | ------------------------------------------- | -------------------------------------------------------------------------- |
-| Framework      | Laravel 10                                  | Built-in Queue, Events, Cache, Broadcasting abstractions                   |
-| Message Broker | RabbitMQ                                    | Reliable delivery, management UI, AMQP protocol                            |
-| Cache          | Redis                                       | Sub-millisecond reads, pattern-based key eviction, native in Laravel       |
-| WebSockets     | Soketi                                      | Self-hosted, Pusher-compatible, no external dependency or free-tier limits |
-| Database       | PostgreSQL                                  | JSONB support if needed later, strong ACID guarantees                      |
-| Queue Driver   | `vladimir-yuldashev/laravel-queue-rabbitmq` | Official Laravel-ecosystem RabbitMQ driver                                 |
-| Broadcasting   | `pusher/pusher-php-server`                  | Works against Soketi (Pusher-compatible protocol)                          |
+**Queue driver — `vladimir-yuldashev/laravel-queue-rabbitmq`**
+No official first-party AMQP driver exists in Laravel; this is the standard maintained option.
 
----
+### Design decisions
 
-## Architecture
+**Server-driven UI**
+Steps, schema widgets, and column definitions are stored in the database (`steps`, `step_schemas`, `column_configs` tables), not hardcoded in PHP arrays. The frontend asks the API what to render — it doesn't need to know about country differences.
 
-```
-┌─────────────────────────────────────────────────────────────────────┐
-│                         Docker Network                              │
-│                                                                     │
-│  ┌──────────────┐   REST CRUD    ┌──────────────────────────────┐  │
-│  │   Frontend /  │◄──────────────│       HR Service              │  │
-│  │   curl/test   │               │  (Laravel 10 — port 8001)    │  │
-│  └──────────────┘               │                               │  │
-│          │                      │  EmployeeController           │  │
-│          │ WebSocket             │  EmployeeSeeder               │  │
-│          │ (Soketi:6001)        └──────────┬────────────────────┘  │
-│          │                                 │ dispatch(PublishEmployeeEvent)  │
-│          │                      ┌──────────▼────────────────────┐  │
-│          │                      │         RabbitMQ               │  │
-│          │                      │    queue: employee-events      │  │
-│          │                      └──────────┬────────────────────┘  │
-│          │                                 │ queue:work              │
-│          │                      ┌──────────▼────────────────────┐  │
-│          │                      │       Hub Worker               │  │
-│          │   broadcast()        │  PublishEmployeeEvent::handle  │  │
-│          │◄─────────────────────│  CacheService::invalidate      │  │
-│          │                      │  ChecklistService::buildReport │  │
-│          │                      └──────────────────────────────┘  │
-│          │                                                         │
-│          │                      ┌──────────────────────────────┐  │
-│          └─────── HTTP API ────►│       Hub Service             │  │
-│                                 │  (Laravel 10 — port 8000)    │  │
-│                                 │                               │  │
-│                                 │  /api/checklists              │  │
-│                                 │  /api/steps                   │  │
-│                                 │  /api/employees               │  │
-│                                 │  /api/schema/{step_id}        │  │
-│                                 └──────────────────────────────┘  │
-│                                                                     │
-│  ┌──────────┐   ┌──────────┐   ┌──────────┐                       │
-│  │PostgreSQL│   │  Redis   │   │  Soketi  │                       │
-│  └──────────┘   └──────────┘   └──────────┘                       │
-└─────────────────────────────────────────────────────────────────────┘
-```
+**Country extensibility**
+Adding a new country means:
+
+1. Create a class implementing `CountryValidatorInterface` in `hubService/app/Validators/`
+2. Register it in `AppServiceProvider` alongside the existing USA and Germany validators
+3. Add validation rules in `CountryRuleProvider::map()` in the HR service
+4. Seed rows into `steps`, `step_schemas`, and `column_configs`
+
+No existing controller, service, or model code changes required.
+
+**Masking driven by database column config**
+The `column_configs` table has a `masked` boolean per column. `EmployeeController` reads that flag and masks any field marked true. SSN masking for USA is not a hardcoded `if ($country === 'USA')` check — it falls out of the data.
+
+**Cache invalidation strategy**
+Cache is invalidated by the hub-worker immediately when an event arrives. The 5-minute TTL is only a fallback for when the worker is down. Keys are scoped by country so a Germany event never touches USA cache entries.
+
+**Trade-offs**
+
+- Pattern-based cache invalidation (`employees:USA:*`) uses Redis SCAN which is O(n). Fine at this scale, but in a large deployment you'd track keys explicitly.
+- No authentication on any endpoint. Routes are structured to add `auth:sanctum` middleware in one line if needed — `authorize()` in all FormRequests already returns `true` as a placeholder.
+- HR Service and Hub Worker share the same job class name (`App\Jobs\PublishEmployeeEvent`). The HR side only dispatches; the Hub side only handles. The shared FQCN is what makes Laravel's queue driver deserialise the payload correctly on the consumer.
 
 ---
 
-## Data Flow
+## Section 2: Architecture
 
-### Creating/Updating an Employee → Real-time UI Update
-
-```
-1.  Client  ──POST /api/employees──►  HR Service
-2.  HR Service saves Employee to PostgreSQL
-3.  HR Service dispatches PublishEmployeeEvent to RabbitMQ queue "employee-events"
-4.  Hub Worker picks up the job (queue:work)
-5.  Hub Worker calls CacheService::invalidateForEmployee(id, country)
-     └── deletes "checklist:{country}" and "employees:{country}:*" keys from Redis
-6.  Hub Worker calls HrApiService::getEmployeesByCountry(country)
-     └── HTTP GET http://hr-service:8001/api/employees?country=...
-7.  Hub Worker calls ChecklistService::buildReport(employees)
-     └── Runs country-specific validators (USA / Germany)
-     └── Calculates per-employee + aggregate completion percentages
-8.  Hub Worker writes fresh report to Redis "checklist:{country}" (TTL 5m)
-9.  Hub Worker broadcasts EmployeeDataUpdated event via Soketi
-     └── Pushes to channels: employees.{COUNTRY}, checklists.{COUNTRY}, employees.{COUNTRY}.{ID}
-10. Connected browser clients receive the event instantly
-```
-
-### GET /api/checklists (Cache-Aside Pattern)
+### System diagram
 
 ```
-Client ──GET /api/checklists?country=USA──► Hub Service
-   └── Cache hit?  YES → return cached JSON (Redis, TTL 5 min)
-   └── Cache miss? NO  → fetch from HR Service → run validators → cache → return
+Client
+  │
+  ├── POST/PATCH/DELETE /api/employees
+  │         │
+  │         ▼
+  │   [ HR Service :8001 ]
+  │     EmployeeController
+  │     EmployeeService
+  │     CountryRuleProvider
+  │         │
+  │         │ dispatch job
+  │         ▼
+  │   [ RabbitMQ ]
+  │     queue: employee-events
+  │         │
+  │         │ queue:work
+  │         ▼
+  │   [ Hub Worker ]
+  │     1. invalidate Redis
+  │     2. fetch employees ──► HR Service
+  │     3. run validators
+  │     4. cache checklist ──► Redis
+  │     5. broadcast
+  │         │
+  │         │ WebSocket push
+  │         ▼
+  │   [ Soketi :6001 ]
+  │         │
+  │         ▼
+  │   Browser (websocket-test.html)
+  │
+  └── GET /api/checklists
+      GET /api/employees
+      GET /api/steps
+      GET /api/schema/:id
+              │
+              ▼
+        [ Hub Service :8000 ]
+          Redis hit  ──► return cached
+          Redis miss ──► fetch HR Service
+                         cache + return
+
+Shared infrastructure:
+  PostgreSQL  — hr_service / hub_service databases
+  Redis       — checklist + employee cache (TTL 5 min)
+  Soketi      — WebSocket server (Pusher-compatible)
+```
+
+### Data flow — employee update end to end
+
+```
+1.  PATCH /api/employees/1  →  HR Service
+2.  EmployeeService updates the DB row inside a transaction
+3.  On success, dispatches PublishEmployeeEvent to RabbitMQ
+      payload: { event_type, event_id, timestamp, country, data: { employee_id, changed_fields, employee } }
+4.  Hub Worker picks up the message
+5.  Worker deletes Redis keys:
+      - checklist:USA
+      - employees:USA:page:*
+6.  Worker GETs /api/employees?country=USA from HR Service (fresh data)
+7.  Worker runs UsaCountryValidator against each employee
+      checks: ssn present, salary > 0, address non-empty
+8.  Worker writes updated checklist report back to Redis (TTL 5 min)
+9.  Worker broadcasts EmployeeDataUpdated to three Soketi channels:
+      - employees.USA
+      - checklists.USA
+      - employees.USA.1  (specific employee)
+10. Any browser subscribed to those channels receives the event instantly
+```
+
+### Cache-aside flow — GET /api/checklists
+
+```
+Request → Hub Service
+  └── Redis has key "checklist:USA"?
+       YES → return cached JSON (< 1ms)
+        NO → fetch employees from HR Service
+           → run ChecklistService::buildReport()
+           → store in Redis with 5 min TTL
+           → return response
 ```
 
 ---
 
-## Design Decisions & Trade-offs
-
-### Cache Key Strategy
-
-```
-checklist:{country}                     Aggregate checklist report
-employees:{country}:page:{n}:{pp}       Paginated employee list
-employee:{id}                           Individual employee snapshot
-```
-
-Keys are small, predictable, and scoped by country so a Germany event never
-invalidates USA cache entries.
-
-**Trade-off**: Pattern-based invalidation (`employees:{country}:*`) requires a Redis
-SCAN, which is O(n) over key count. For the scale of this challenge this is acceptable;
-in production you'd track page keys explicitly or use a tag-based cache library.
-
-### WebSocket Channel Design
-
-| Channel                    | Subscribers           |
-| -------------------------- | --------------------- |
-| `employees.{COUNTRY}`      | Employee list views   |
-| `checklists.{COUNTRY}`     | Checklist dashboard   |
-| `employees.{COUNTRY}.{ID}` | Employee detail pages |
-
-Public channels are used (no auth). In production, private channels with Sanctum
-tokens would be appropriate for sensitive payloads (SSN, salary).
-
-### Event Payload Format (Cross-Service Contract)
-
-Both HR Service and Hub Worker share `App\Jobs\PublishEmployeeEvent` — the same FQCN
-ensures Laravel's queue serialiser can hydrate the job on the consumer side.
-The payload is a plain PHP array, keeping the contract explicit and version-friendly.
-
-### Country Extensibility
-
-New countries require:
-
-1. A new `CountryValidatorInterface` implementation in `app/Validators/`
-2. Registering it in `ChecklistService::$validators`
-3. Adding column config in `EmployeeController::$columnConfig`
-4. Adding step/schema config in `StepsController` and `SchemaController`
-
-No existing code changes required — open/closed principle applies.
-
-### Caching TTL
-
-Both checklist and employee list caches use **5-minute TTL** as a fallback safety net.
-The primary invalidation mechanism is event-driven (immediate on RabbitMQ messages),
-so staleness beyond 5 minutes would only occur if the Hub Worker is down.
-
----
-
-## Quick Start
-
-### Prerequisites
-
-- Docker ≥ 24
-- Docker Compose ≥ 2.20
-- (Optional) PHP 8.2 + Composer — only needed to run tests locally
-
-### Start Everything
+## Quick start
 
 ```bash
-docker-compose up -d
+# Start all services
+docker compose up -d
+
+# Check everything is up
+docker compose ps
+
+# Seed test data (runs automatically on first boot via docker-entrypoint.sh)
+# If you need to re-seed manually:
+docker compose exec hr-service php artisan db:seed
+docker compose exec hub-service php artisan db:seed
 ```
 
-This single command starts all 7 services. First build takes ~3 minutes (downloads
-PHP images and installs Composer dependencies). Subsequent starts are fast.
+Services after boot:
 
-### Check Status
+| Service         | URL                                    |
+| --------------- | -------------------------------------- |
+| HR Service API  | http://localhost:8001/api              |
+| Hub Service API | http://localhost:8000/api              |
+| RabbitMQ UI     | http://localhost:15672 (guest / guest) |
+| WebSocket test  | open `websocket-test.html` in browser  |
 
-```bash
-docker-compose ps
-```
-
-### Verify HR Service is running
-
-```bash
-curl http://localhost:8001/api/employees
-```
-
-### Verify Hub Service is running
-
-```bash
-curl http://localhost:8000/api/steps?country=USA
-```
-
-### Open RabbitMQ Management UI
-
-[http://localhost:15672](http://localhost:15672) — credentials: `guest / guest`
-
-### Open WebSocket Live Test Page
-
-Open [websocket-test.html](websocket-test.html) directly in your browser. No server needed — it's a standalone HTML file.
+> **Note:** Code is copied into the image at build time. After editing any PHP file, rebuild before testing:
+>
+> ```bash
+> docker compose build hub-service hub-worker && docker compose up -d hub-service hub-worker
+> ```
 
 ---
 
-## API Reference
+## API reference
 
-### HR Service (port 8001)
+### HR Service — port 8001
 
-| Method | Endpoint              | Description                     |
-| ------ | --------------------- | ------------------------------- |
-| GET    | `/api/employees`      | List employees (`?country=USA`) |
-| POST   | `/api/employees`      | Create employee                 |
-| GET    | `/api/employees/{id}` | Get single employee             |
-| PUT    | `/api/employees/{id}` | Update employee                 |
-| DELETE | `/api/employees/{id}` | Delete employee                 |
+```
+GET    /api/employees?country=USA      paginated employee list
+POST   /api/employees                  create employee
+GET    /api/employees/{id}             single employee
+PATCH  /api/employees/{id}             partial update
+DELETE /api/employees/{id}             delete
+```
 
-**Create USA Employee**
+**Create USA employee**
 
 ```bash
 curl -X POST http://localhost:8001/api/employees \
   -H "Content-Type: application/json" \
-  -d '{
-    "name": "John",
-    "last_name": "Doe",
-    "salary": 75000,
-    "country": "USA",
-    "ssn": "123-45-6789",
-    "address": "123 Main St, New York, NY"
-  }'
+  -d '{"name":"John","last_name":"Doe","salary":75000,"country":"USA","ssn":"123-45-6789","address":"123 Main St"}'
 ```
 
-**Create Germany Employee**
+**Create Germany employee**
 
 ```bash
 curl -X POST http://localhost:8001/api/employees \
   -H "Content-Type: application/json" \
-  -d '{
-    "name": "Hans",
-    "last_name": "Mueller",
-    "salary": 65000,
-    "country": "Germany",
-    "goal": "Increase team productivity by 20%",
-    "tax_id": "DE123456789"
-  }'
+  -d '{"name":"Hans","last_name":"Mueller","salary":65000,"country":"Germany","goal":"Increase team output","tax_id":"DE123456789"}'
 ```
 
----
+### Hub Service — port 8000
 
-### Hub Service (port 8000)
-
-#### GET /api/checklists?country=USA
-
-Returns aggregated data completeness validation for all employees in a country.
-
-```bash
-curl "http://localhost:8000/api/checklists?country=USA"
 ```
-
-**Response:**
-
-```json
-{
-  "country": "USA",
-  "data": {
-    "summary": {
-      "total_employees": 3,
-      "total_fields": 9,
-      "completed_fields": 7,
-      "incomplete_fields": 2,
-      "overall_completion": 77.78
-    },
-    "employees": [
-      {
-        "employee_id": 1,
-        "name": "John Doe",
-        "country": "USA",
-        "completed_fields": 3,
-        "total_fields": 3,
-        "completion_rate": 100,
-        "is_complete": true,
-        "fields": {
-          "ssn": { "complete": true, "message": "SSN is present." },
-          "salary": { "complete": true, "message": "Salary is set." },
-          "address": { "complete": true, "message": "Address is present." }
-        }
-      }
-    ]
-  }
-}
-```
-
-#### GET /api/steps?country=USA
-
-```bash
-curl "http://localhost:8000/api/steps?country=USA"
-# USA:     Dashboard, Employees
-# Germany: Dashboard, Employees, Documentation
-```
-
-#### GET /api/employees?country=USA&page=1&per_page=15
-
-Returns paginated employees with country-specific columns. SSN is masked for USA.
-
-```bash
-curl "http://localhost:8000/api/employees?country=USA"
-```
-
-#### GET /api/schema/{step_id}?country=USA
-
-Returns frontend widget configuration for a step.
-
-```bash
-curl "http://localhost:8000/api/schema/dashboard?country=Germany"
-```
-
----
-
-## WebSocket Channels
-
-The test page (`websocket-test.html`) demonstrates real-time updates:
-
-1. Open the file in your browser
-2. Click **Connect** (default host/port targets Soketi on localhost:6001)
-3. Select a country and click **Subscribe**
-4. In another terminal, update an employee via the HR Service API
-5. The event instantly appears in the test page
-
-**Demo flow:**
-
-```bash
-# Watch events in test page, then run:
-curl -X PUT http://localhost:8001/api/employees/1 \
-  -H "Content-Type: application/json" \
-  -d '{"salary": 95000}'
+GET  /api/checklists              all countries
+GET  /api/checklists?country=USA  single country
+GET  /api/steps?country=USA       navigation steps for the UI
+GET  /api/employees?country=USA   employees with column config
+GET  /api/schema/{step_id}?country=USA  widget schema for a step
 ```
 
 ---
 
 ## Testing
 
-### Run HR Service Tests
-
 ```bash
-cd hrService
-php artisan test
-```
+# HR Service — 13 tests
+cd hrService && php artisan test
 
-**Coverage:** 13 tests — model unit tests, all CRUD endpoints, validation edge cases.
+# Hub Service — 46 tests
+cd hubService && php artisan test
 
-### Run HubService Tests
-
-```bash
-cd hubService
-php artisan test
-```
-
-**Coverage:** 46 tests across three suites:
-
-| Suite       | Tests | What is tested                                                           |
-| ----------- | ----- | ------------------------------------------------------------------------ |
-| Unit        | 16    | `UsaCountryValidator`, `GermanyCountryValidator`, `ChecklistService`     |
-| Feature     | 26    | All 4 API endpoints, validation errors, caching, SSN masking             |
-| Integration | 4     | Full event pipeline: RabbitMQ → cache invalidation → WebSocket broadcast |
-
-### Run Specific Suite
-
-```bash
-cd hubService && php artisan test --testsuite=Unit
+# Run a specific suite
 cd hubService && php artisan test --testsuite=Integration
 ```
 
----
-
-## Environment Variables
-
-### HR Service
-
-```dotenv
-QUEUE_CONNECTION=rabbitmq
-DB_CONNECTION=pgsql
-RABBITMQ_HOST=rabbitmq
-RABBITMQ_PORT=5672
-RABBITMQ_USER=guest
-RABBITMQ_PASSWORD=guest
-```
-
-### Hub Service
-
-```dotenv
-QUEUE_CONNECTION=rabbitmq
-CACHE_DRIVER=redis
-BROADCAST_DRIVER=pusher
-HR_SERVICE_URL=http://hr-service:8001
-PUSHER_HOST=soketi
-PUSHER_PORT=6001
-PUSHER_APP_KEY=innoscripta-key
-PUSHER_APP_SECRET=innoscripta-secret
-PUSHER_APP_ID=innoscripta
-```
+| Suite       | Count | Covers                                            |
+| ----------- | ----- | ------------------------------------------------- |
+| Unit        | 16    | Validators, ChecklistService                      |
+| Feature     | 26    | All endpoints, validation, caching, SSN masking   |
+| Integration | 4     | Full event pipeline: RabbitMQ → cache → WebSocket |
 
 ---
 
-## Project Structure
+## Project structure
 
 ```
 innoscripta_test/
-├── docker-compose.yml              # One-command startup
-├── docker/
-│   └── postgres/
-│       └── init-multiple-dbs.sh   # Creates hr_service + hub_service DBs
-├── websocket-test.html             # Browser WebSocket test page
-│
-├── hrService/                      # Employee CRUD microservice
-│   ├── app/
-│   │   ├── Http/Controllers/EmployeeController.php
-│   │   ├── Http/Requests/{Store,Update}EmployeeRequest.php
-│   │   ├── Http/Resources/EmployeeResource.php
-│   │   ├── Jobs/PublishEmployeeEvent.php     ← RabbitMQ publisher
-│   │   └── Models/Employee.php
-│   ├── database/
-│   │   ├── migrations/2024_02_09_..._create_employees_table.php
-│   │   └── seeders/EmployeeSeeder.php         ← Demo data
-│   └── tests/
-│       ├── Feature/EmployeeCrudTest.php
-│       └── Unit/EmployeeModelTest.php
-│
-└── hubService/                     # Main orchestration layer
-    ├── app/
-    │   ├── Contracts/CountryValidatorInterface.php
-    │   ├── Validators/{Usa,Germany}CountryValidator.php
-    │   ├── Services/
-    │   │   ├── ChecklistService.php     ← Validation engine
-    │   │   ├── CacheService.php         ← Redis cache management
-    │   │   └── HrApiService.php         ← HTTP client for HR Service
-    │   ├── Jobs/PublishEmployeeEvent.php ← RabbitMQ consumer (handle())
-    │   ├── Events/EmployeeDataUpdated.php ← WebSocket broadcast event
-    │   └── Http/Controllers/
-    │       ├── ChecklistController.php
-    │       ├── StepsController.php
-    │       ├── EmployeeController.php
-    │       └── SchemaController.php
-    └── tests/
-        ├── Unit/{Usa,Germany}CountryValidatorTest.php
-        ├── Unit/ChecklistServiceTest.php
-        ├── Feature/{Checklist,Steps,Employee,Schema}ControllerTest.php
-        └── Integration/EventProcessingTest.php
+├── docker-compose.yml
+├── websocket-test.html
+├── hrService/
+│   └── app/
+│       ├── Http/Controllers/EmployeeController.php
+│       ├── Http/Requests/StoreEmployeeRequest.php
+│       ├── Http/Requests/UpdateEmployeeRequest.php
+│       ├── Jobs/PublishEmployeeEvent.php
+│       ├── Models/Employee.php
+│       └── Services/
+│           ├── EmployeeService.php
+│           └── CountryRuleProvider.php
+└── hubService/
+    └── app/
+        ├── Contracts/CountryValidatorInterface.php
+        ├── Validators/UsaCountryValidator.php
+        ├── Validators/GermanyCountryValidator.php
+        ├── Jobs/PublishEmployeeEvent.php
+        ├── Events/EmployeeDataUpdated.php
+        ├── Providers/AppServiceProvider.php
+        ├── Http/Controllers/
+        │   ├── ChecklistController.php
+        │   ├── EmployeeController.php
+        │   ├── StepsController.php
+        │   └── SchemaController.php
+        ├── Models/
+        │   ├── Step.php
+        │   ├── StepSchema.php
+        │   └── ColumnConfig.php
+        └── Services/
+            ├── ChecklistService.php
+            ├── CacheService.php
+            └── HrApiService.php
 ```
